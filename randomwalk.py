@@ -4,8 +4,8 @@ import sys
 import random
 import numpy as np
 
-IN_FILENAME = "NN_NNMF_500Cves.txt" #set
-IMPORT_ARRAY = np.loadtxt(os.path.join(sys.path[0],IN_FILENAME), delimiter = ' ')
+IN_FILENAME = "NN_NNMF_500Cves.txt"  ##set
+IMPORT_ARRAY = np.loadtxt(os.path.join(sys.path[0], IN_FILENAME), delimiter=' ')
 
 MAX_ITERS = 100
 
