@@ -32,5 +32,3 @@ def check_neighbor(inp_node, connection_list, time_label_list):
     if not top_labels:
         return -1
     return random.choice(top_labels)  # this is the label
-
-
