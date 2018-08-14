@@ -13,10 +13,10 @@ NUM_OF_NODES = int(max(IMPORT_ARRAY[:, 0]))
 NUM_OF_EDGES = IMPORT_ARRAY.shape[0]
 
 # this gets a list of all nodes
-NODE_LIST = set([int(x[0]) for x in IMPORT_ARRAY])
-DEFAULT_NODE_LIST = set([x for x in range(NUM_OF_NODES+1)])
+NODE_LIST = set([int(node[0]) for node in IMPORT_ARRAY])
+DEFAULT_NODES = set([default_node for default_node in range(NUM_OF_NODES+1)])
 print("These nodes are missing")
-print(DEFAULT_NODE_LIST-NODE_LIST)
+print(DEFAULT_NODES-NODE_LIST)
 print("This graph has %d nodes and %d edges" % (NUM_OF_NODES, NUM_OF_EDGES))
 
 # create a list of nodes and their classifications
@@ -27,15 +27,32 @@ LABEL_LIST[4] = 1
 
 # This serves as the indices between the nodes
 # The append is necessary as it maintains the format
-INDEX_MARKERS = [x for x in range(IMPORT_ARRAY.shape[0])
-                 if IMPORT_ARRAY[x][0] != IMPORT_ARRAY[x-1][0]]
+INDEX_MARKERS = [index for index in range(IMPORT_ARRAY.shape[0])
+                 if IMPORT_ARRAY[index][0] != IMPORT_ARRAY[index-1][0]]
 INDEX_MARKERS.append(IMPORT_ARRAY.shape[0])
 
 # this generates a list of lists - the first index is the node's index
 # and the list inside signifies all of the nodes' connections
-NODE_CONNECTIONS = [[int(IMPORT_ARRAY[x][1]) for x in range(INDEX_MARKERS[y],
-                    INDEX_MARKERS[y+1])] for y in range(max(NODE_LIST))]
+# DEPRECATED CODE THAT WAS A REALLY COOL LIST COMPREHENSION
+# R I P :(
+# NODE_CONNECTIONS = [[int(IMPORT_ARRAY[x][1]) for x in range(INDEX_MARKERS[y],
+#                     INDEX_MARKERS[y+1])] for y in range(max(NODE_LIST))]
+NODE_CONNECT_DEST = [
+    [int(IMPORT_ARRAY[connection][0]) for connection in np.where(
+     IMPORT_ARRAY[:, 1] == origin)[0]] for origin in NODE_LIST]
+
+NODE_CONNECT_ORIG = [[int(IMPORT_ARRAY[x][1]) for x in range(INDEX_MARKERS[y],
+                     INDEX_MARKERS[y+1])] for y in range(max(NODE_LIST))]
+
+NODE_CONNECTIONS = [
+    list(set(NODE_CONNECT_DEST[node_num-1] + NODE_CONNECT_ORIG[node_num-1]))
+    for node_num in NODE_LIST]
+
 NODE_CONNECTIONS.insert(0, [0])
+
+TOTAL_WEIGHT_ARR = np.zeros((NUM_OF_NODES+1, NUM_OF_NODES+1))
+for origin_node in IMPORT_ARRAY:
+    TOTAL_WEIGHT_ARR[int(origin_node[0])][int(origin_node[1])] = origin_node[2]
 
 
 def write_to_disk(filename, list_to_write):
@@ -44,7 +61,10 @@ def write_to_disk(filename, list_to_write):
             filehandle.write('%s\n' % listitem)
 
 write_to_disk('./data/node_list.txt', NODE_LIST)
-write_to_disk('./data/nodes_missing.txt', DEFAULT_NODE_LIST - NODE_LIST)
+write_to_disk('./data/nodes_missing.txt', DEFAULT_NODES - NODE_LIST)
 write_to_disk('./data/label_list.txt', LABEL_LIST)
 write_to_disk('./data/index_markers.txt', INDEX_MARKERS)
 write_to_disk('./data/node_connections.txt', NODE_CONNECTIONS)
+write_to_disk('./data/node_connect_dest.txt', NODE_CONNECT_DEST)
+write_to_disk('./data/node_connect_orig.txt', NODE_CONNECT_ORIG)
+np.savetxt("./data/node_connections.txt", TOTAL_WEIGHT_ARR)
