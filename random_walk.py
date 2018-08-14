@@ -1,13 +1,19 @@
-""" This module serves to act as a host for label propagation"""
+""" This module serves to act as a host for label propagation
+General formatting note: often, matrices will have a size of
+NUM_OF_NODES+1 - the 0th index is often filled with -1 or 0. This
+is simply for convenience - when nodes are called, their names can
+simply be used, instead of their index (which would be #-1)
+"""
 import os
 import sys
 import random
 import numpy as np
 
-FILENAME = "NN_NNMF_500Cves.txt"  # set
-IMPORT_ARRAY = np.loadtxt(os.path.join(sys.path[0], FILENAME), delimiter=' ')
-
+# This is the max number of iterations the file should run
 MAX_ITERS = 100
+
+FILENAME = "NN_NNMF_500Cves.txt"
+IMPORT_ARRAY = np.loadtxt(os.path.join(sys.path[0], FILENAME), delimiter=' ')
 
 NUM_OF_NODES = int(max(IMPORT_ARRAY[:, 0]))
 NUM_OF_EDGES = IMPORT_ARRAY.shape[0]
@@ -21,9 +27,12 @@ print("This graph has %d nodes and %d edges" % (NUM_OF_NODES, NUM_OF_EDGES))
 
 # create a list of nodes and their classifications
 # the second dimension is wrt time
+# ! LABEL_LIST needs to be assigned *REAL* labels!! :)
 LABEL_LIST = np.zeros((NUM_OF_NODES+1, 1))-1
 LABEL_LIST[4] = 1
 
+# This serves as the indices between the nodes
+# The append is necessary as it maintains the format
 INDEX_MARKERS = [x for x in range(IMPORT_ARRAY.shape[0])
                  if IMPORT_ARRAY[x][0] != IMPORT_ARRAY[x-1][0]]
 INDEX_MARKERS.append(IMPORT_ARRAY.shape[0])
