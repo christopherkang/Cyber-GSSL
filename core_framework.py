@@ -50,6 +50,22 @@ def shuffle_list(inp_list):
     return temp_list
 
 
+def predict_node(node_num, inp_labels, func_to_use):
+    """Serves as function to pass
+
+    Arguments:
+        node_num {int} -- number of node to predict
+        func_to_use {str} -- name of function to use
+    """
+    if func_to_use == "rand_walk":
+        return rand_walk.check_neighbor(
+            node_num, NODE_CONNECTIONS, inp_labels[:, -1])
+    elif func_to_use == "weighted_rand_walk":
+        weighted_rand_walk()
+    else:
+        raise Exception("UnknownFunctionError")
+
+
 def iterate_time(inp_labels, inp_nodes, connection_list, propagating_function):
     """Iterator for time
 
@@ -66,19 +82,18 @@ def iterate_time(inp_labels, inp_nodes, connection_list, propagating_function):
 
     # check to insure the labels given match the expected shape
     assert inp_labels.shape[0] == NUM_OF_NODES+1
-    assert callable(propagating_function)
     node_order = shuffle_list(inp_nodes)
     time_counter = inp_labels.shape[1]  # this is the current time
     labels_after_time = np.concatenate(
         (inp_labels, np.zeros([NUM_OF_NODES + 1, 1])-1), axis=1)
 
     for node in node_order:  # for each node index
-        labels_after_time[node][time_counter] = propagating_function(
-            node, connection_list, inp_labels[:, -1])
+        labels_after_time[node][time_counter] = predict_node(
+            node, inp_labels, propagating_function)
 
     return labels_after_time
 
 for counter in range(MAX_ITERS):
     LABEL_LIST = iterate_time(LABEL_LIST, NODE_LIST,
-                              NODE_CONNECTIONS, rand_walk.check_neighbor)
+                              NODE_CONNECTIONS, "rand_walk")
 print(LABEL_LIST)
