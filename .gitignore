@@ -2,3 +2,4 @@
 *.json
 .vscode/.ropeproject/objectdb
 .vscode/.ropeproject/config.py
+*.pyc
