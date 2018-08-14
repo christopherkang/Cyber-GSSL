@@ -4,7 +4,6 @@ will simply load the .txt files.
 """
 import os
 import sys
-import random
 import numpy as np
 
 FILENAME = "NN_NNMF_500Cves.txt"
@@ -36,7 +35,7 @@ INDEX_MARKERS.append(IMPORT_ARRAY.shape[0])
 # and the list inside signifies all of the nodes' connections
 NODE_CONNECTIONS = [[int(IMPORT_ARRAY[x][1]) for x in range(INDEX_MARKERS[y],
                     INDEX_MARKERS[y+1])] for y in range(max(NODE_LIST))]
-NODE_CONNECTIONS.insert(0, 0)
+NODE_CONNECTIONS.insert(0, [0])
 
 
 def write_to_disk(filename, list_to_write):

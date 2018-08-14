@@ -5,43 +5,49 @@ is simply for convenience - when nodes are called, their names can
 simply be used, instead of their index (which would be #-1)
 """
 import os
-import sys
 import random
 import numpy as np
+
+
+def access_file(filename):
+    """Accesses a given file
+
+    Arguments:
+        filename {str} -- file directory
+    """
+    temp_list = []
+    if os.path.exists("/home/el/myfile.txt"):
+        raise Exception('FileNotFound_%s' % (filename))
+    with open(str(filename), "r") as filehandle:
+        for line in filehandle:
+            current_place = line[:-1]
+            temp_list.append(eval(current_place))
+        return temp_list
 
 # This is the max number of iterations the file should run
 MAX_ITERS = 100
 
-FILENAME = "NN_NNMF_500Cves.txt"
-IMPORT_ARRAY = np.loadtxt(os.path.join(sys.path[0], FILENAME), delimiter=' ')
-
-NUM_OF_NODES = int(max(IMPORT_ARRAY[:, 0]))
-NUM_OF_EDGES = IMPORT_ARRAY.shape[0]
-
-# this gets a list of all nodes
-NODE_LIST = set([int(x[0]) for x in IMPORT_ARRAY])
-DEFAULT_NODE_LIST = set([x for x in range(NUM_OF_NODES+1)])
-print("These nodes are missing")
-print(DEFAULT_NODE_LIST-NODE_LIST)
-print("This graph has %d nodes and %d edges" % (NUM_OF_NODES, NUM_OF_EDGES))
-
 # create a list of nodes and their classifications
 # the second dimension is wrt time
 # ! LABEL_LIST needs to be assigned *REAL* labels!! :)
-LABEL_LIST = np.zeros((NUM_OF_NODES+1, 1))-1
-LABEL_LIST[4] = 1
-
+LABEL_LIST = access_file("./data/label_list.txt")
+LABEL_LIST = np.asarray(LABEL_LIST)
 # This serves as the indices between the nodes
 # The append is necessary as it maintains the format
-INDEX_MARKERS = [x for x in range(IMPORT_ARRAY.shape[0])
-                 if IMPORT_ARRAY[x][0] != IMPORT_ARRAY[x-1][0]]
-INDEX_MARKERS.append(IMPORT_ARRAY.shape[0])
+INDEX_MARKERS = access_file("./data/index_markers.txt")
 
 # this generates a list of lists - the first index is the node's index
 # and the list inside signifies all of the nodes' connections
-NODE_CONNECTIONS = [[int(IMPORT_ARRAY[x][1]) for x in range(INDEX_MARKERS[y],
-                    INDEX_MARKERS[y+1])] for y in range(max(NODE_LIST))]
-NODE_CONNECTIONS.insert(0, 0)
+NODE_CONNECTIONS = access_file("./data/node_connections.txt")
+
+# this gets a list of all nodes
+NODE_LIST = access_file("./data/node_list.txt")
+NUM_OF_NODES = int(max(NODE_LIST))
+NUM_OF_EDGES = int(max(INDEX_MARKERS))
+
+print("These nodes are missing")
+print(access_file("./data/nodes_missing.txt"))
+print("This graph has %d nodes and %d edges" % (NUM_OF_NODES, NUM_OF_EDGES))
 
 
 def shuffle_list(inp_list):
@@ -84,7 +90,7 @@ def check_neighbor(inp_node, connection_list, time_label_list):
                        max(map(c, temp_label_hold))})
     print("these are in top_labels ", top_labels)
     # a set of the most popular labels
-    if top_labels is False:
+    if not top_labels:
         return -1
     return random.choice(top_labels)  # this is the label
 
@@ -118,6 +124,6 @@ def iterate_time(inp_labels, inp_nodes, connection_list, propagating_function):
     return labels_after_time
 
 for counter in range(MAX_ITERS):
-    LABEL_LIST = iterate_time(LABEL_LIST, list(NODE_LIST),
+    LABEL_LIST = iterate_time(LABEL_LIST, NODE_LIST,
                               NODE_CONNECTIONS, check_neighbor)
 print(LABEL_LIST)
