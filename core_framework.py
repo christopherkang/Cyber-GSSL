@@ -10,7 +10,7 @@ import numpy as np
 from prop_algs import *
 
 # This is the max number of iterations the file should run
-MAX_ITERS = 100
+MAX_ITERS = 1
 
 # create a list of nodes and their classifications
 # the second dimension is wrt time
@@ -30,6 +30,8 @@ NODE_CONNECTIONS = readfile.access_file("./data/node_connections.txt")
 NODE_LIST = readfile.access_file("./data/node_list.txt")
 NUM_OF_NODES = int(max(NODE_LIST))
 NUM_OF_EDGES = int(max(INDEX_MARKERS))
+
+WEIGHT_MATRIX = np.loadtxt("./data/edge_weights.txt")
 
 print("These nodes are missing")
 print(readfile.access_file("./data/nodes_missing.txt"))
@@ -55,13 +57,19 @@ def predict_node(node_num, inp_labels, func_to_use):
 
     Arguments:
         node_num {int} -- number of node to predict
+        inp_labels {list} -- full list of all labels
         func_to_use {str} -- name of function to use
     """
     if func_to_use == "rand_walk":
         return rand_walk.check_neighbor(
             node_num, NODE_CONNECTIONS, inp_labels[:, -1])
     elif func_to_use == "weighted_rand_walk":
-        weighted_rand_walk()
+        weights = {
+            dest_node: WEIGHT_MATRIX[node_num][dest_node] for dest_node in
+            NODE_CONNECTIONS[node_num]}
+        print(weights)
+        return weighted_rand_walk.weight_check_neighbor(
+            node_num, NODE_CONNECTIONS, inp_labels[:, -1], weights)
     else:
         raise Exception("UnknownFunctionError")
 
@@ -95,5 +103,5 @@ def iterate_time(inp_labels, inp_nodes, connection_list, propagating_function):
 
 for counter in range(MAX_ITERS):
     LABEL_LIST = iterate_time(LABEL_LIST, NODE_LIST,
-                              NODE_CONNECTIONS, "rand_walk")
+                              NODE_CONNECTIONS, "weighted_rand_walk")
 print(LABEL_LIST)

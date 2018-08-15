@@ -23,7 +23,6 @@ def check_neighbor(inp_node, connection_list, time_label_list):
         else:
             temp_label_hold.append(time_label_list[neighbors])
     # only return most common labels
-    print(temp_label_hold)
     c = temp_label_hold.count  # shorting
     top_labels = list({x for x in temp_label_hold if c(x) ==
                        max(map(c, temp_label_hold))})

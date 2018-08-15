@@ -56,6 +56,13 @@ for origin_node in IMPORT_ARRAY:
 
 
 def write_to_disk(filename, list_to_write):
+    """Writes a specific list to disk
+
+    Arguments:
+        filename {str} -- where to write the file
+        list_to_write {list} -- list to write
+    """
+
     with open(filename, 'w+') as filehandle:
         for listitem in list_to_write:
             filehandle.write('%s\n' % listitem)
