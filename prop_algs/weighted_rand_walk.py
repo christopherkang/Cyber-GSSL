@@ -31,7 +31,7 @@ def weight_check_neighbor(inp_node, connection_list, time_label_list, weights):
                 sum_weights[time_label_list[neighbors]] = weights[neighbors]
     try:
         max_value = max(sum_weights.values())
-        max_value = list({key for key, value in sum_weights.items() if value == max_value})
+        max_value = list({key for key, val in sum_weights.items() if val == max_value})
     except:
         return -1
     print("these are in top_labels ", max_value)
