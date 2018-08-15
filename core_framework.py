@@ -4,8 +4,6 @@ NUM_OF_NODES+1 - the 0th index is often filled with -1 or 0. This
 is simply for convenience - when nodes are called, their names can
 simply be used, instead of their index (which would be #-1)
 """
-import os
-import random
 import numpy as np
 from prop_algs import *
 
