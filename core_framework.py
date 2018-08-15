@@ -70,6 +70,8 @@ def predict_node(node_num, inp_labels, func_to_use):
         print(weights)
         return weighted_rand_walk.weight_check_neighbor(
             node_num, NODE_CONNECTIONS, inp_labels[:, -1], weights)
+    elif func_to_use == "nge":
+        raise Exception("NGECurrentlyUnsupported")
     else:
         raise Exception("UnknownFunctionError")
 
