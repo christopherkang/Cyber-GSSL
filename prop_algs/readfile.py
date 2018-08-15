@@ -1,3 +1,12 @@
+"""Holds file reader component
+
+Raises:
+    Exception -- File not found error
+
+Returns:
+    list -- Returns read file
+"""
+
 import os
 
 
