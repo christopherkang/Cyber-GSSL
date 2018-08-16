@@ -5,6 +5,7 @@ will simply load the .txt files.
 import os
 import sys
 import numpy as np
+import pandas as pd
 
 FILENAME = "NN_NNMF_500Cves.txt"
 IMPORT_ARRAY = np.loadtxt(os.path.join(sys.path[0], FILENAME), delimiter=' ')
@@ -75,3 +76,9 @@ write_to_disk('./data/node_connections.txt', NODE_CONNECTIONS)
 write_to_disk('./data/node_connect_dest.txt', NODE_CONNECT_DEST)
 write_to_disk('./data/node_connect_orig.txt', NODE_CONNECT_ORIG)
 np.savetxt("./data/edge_weights.txt", TOTAL_WEIGHT_ARR)
+PANDAS_WEIGHT_ARR = pd.DataFrame(
+    TOTAL_WEIGHT_ARR[1:, 1:],
+    index=NODE_LIST,
+    columns=NODE_LIST)
+print(PANDAS_WEIGHT_ARR.head(10))
+PANDAS_WEIGHT_ARR.to_pickle("./data/pandas_weight_array.pickle")
