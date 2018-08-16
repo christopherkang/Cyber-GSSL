@@ -1,10 +1,11 @@
 """This file holds the TF algorithm used for the "neural graph engine"
 """
-
+import readfile
 import tensorflow as tf
 import pandas as pd
 
-pd.read_csv()
+EDGE_MATRIX = pd.read_pickle("../data/pandas_weight_array.pickle")
+TRAIN_STEPS = 100
 
 
 # used to create the feature columns necessary for the estimator
@@ -59,6 +60,7 @@ def my_model_fn(features, labels, mode, params):
         return tf.estimator.EstimatorSpec(mode, predictions=predictions)
 
     # Let's calculate loSS!!
+    # THIS LOSS NEEDS TO BE FIXED
     loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
 
     # Compute evaluation metrics
@@ -79,7 +81,11 @@ def my_model_fn(features, labels, mode, params):
 
 classifier = tf.estimator.Estimator(
     model_fn=my_model_fn,
-    params={'feature_columns':  # make_feature_columns(),
-            'hidden_units':  # ur code here [10, 10],
+    params={'feature_columns': make_feature_columns(EDGE_MATRIX),
+            'hidden_units': [1000, 500],
             'n_classes': 3,
             })
+
+classifier.train(
+    input_fn=lambda: my_input_fn(FILL_ME_IN),
+    steps=TRAIN_STEPS)
