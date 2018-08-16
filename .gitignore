@@ -3,3 +3,4 @@
 .vscode/.ropeproject/objectdb
 .vscode/.ropeproject/config.py
 *.pyc
+.DS_Store
