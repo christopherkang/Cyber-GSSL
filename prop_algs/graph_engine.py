@@ -8,6 +8,10 @@ EDGE_MATRIX = pd.read_pickle("../data/pandas_weight_array.pickle")
 TRAIN_STEPS = 100
 
 
+def split_data(features, labels):
+
+
+
 # used to create the feature columns necessary for the estimator
 def make_feature_columns(features):
     """Creates feature columns for an estimator
@@ -25,6 +29,21 @@ def make_feature_columns(features):
 
 # input function
 def my_input_fn(features, labels, batch_size=1, shuffle=True, num_epochs=None):
+    """Serves as the tensorflow input function
+
+    Arguments:
+        features {pd df} -- pandas datafram
+        labels {pd df} -- pandas dataframe
+
+    Keyword Arguments:
+        batch_size {int} -- size of the batches (default: {1})
+        shuffle {bool} -- whether shuffling is enabled (default: {True})
+        num_epochs {int} -- total number of times to batch (default: {None})
+
+    Returns:
+        tf dataset -- dataset of the data
+    """
+
     # add summary when finished
 
     # convert inputs into a dataset
