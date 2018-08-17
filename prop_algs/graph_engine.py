@@ -87,6 +87,10 @@ def my_model_fn(features, labels, mode, params):
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
 
 
+training_input_fn = lambda: my_input_fn(FILL ME IN)
+validation_input_fn = lambda: my_input_fn(FILL ME IN)
+test_input_fn = lambda: my_input_fn(FILL ME IN)
+
 classifier = tf.estimator.Estimator(
     model_fn=my_model_fn,
     params={'feature_columns': make_feature_columns(EDGE_MATRIX),
@@ -95,5 +99,11 @@ classifier = tf.estimator.Estimator(
             })
 
 classifier.train(
-    input_fn=lambda: my_input_fn(FILL_ME_IN),
+    input_fn=training_input_fn,
     steps=TRAIN_STEPS)
+
+classifier.predict(
+    input_fn=validation_input_fn)
+
+classifier.predict(
+    input_fn=test_input_fn)
