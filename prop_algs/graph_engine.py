@@ -24,15 +24,23 @@ def make_feature_columns(features):
 
 
 # input function
-def my_input_fn(features, labels, batch_size=1, shuffle=True):
+def my_input_fn(features, labels, batch_size=1, shuffle=True, num_epochs=None):
     # add summary when finished
 
     # convert inputs into a dataset
+    features = {key:np.array(value) for key,value in dict(features).items()}
+    ds = tf.data.Dataset.from_tensor_slices(features)
+
+    # This will supply them indefinitely
+    ds = ds.batch(batch_size).repeat(num_epochs)
 
     # shuffle
+    if shuffle:
+        ds = ds.shuffle(50)
 
     # return batched info
-    return IDKKKKKKK
+    features, labels = ds.make_one_shot_iterator().get_next()
+    return features, labels
 
 
 # need to write the model function
