@@ -4,12 +4,19 @@ import readfile
 import tensorflow as tf
 import pandas as pd
 
+# EDGE_MATRIX format: columns are connections, rows are individual nodes
+# values are weights
 EDGE_MATRIX = pd.read_pickle("../data/pandas_weight_array.pickle")
+
+# LABEL_LIST format: columns are labels and LL/LU/UU status 
+# rows are individual notes
+LABEL_LIST = pd.read_pickle("I DONT KNOW THE FILE PATH")
 TRAIN_STEPS = 100
 
 
 def split_data(features, labels):
-
+    
+    return train_set, train_labels, valid_set, valid_labels
 
 
 # used to create the feature columns necessary for the estimator
@@ -43,8 +50,6 @@ def my_input_fn(features, labels, batch_size=1, shuffle=True, num_epochs=None):
     Returns:
         tf dataset -- dataset of the data
     """
-
-    # add summary when finished
 
     # convert inputs into a dataset
     features = {key:np.array(value) for key,value in dict(features).items()}
