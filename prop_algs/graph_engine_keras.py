@@ -1,6 +1,8 @@
 import keras as k
 import pandas as pd
+import os
 
+os.chdir(os.path.dirname(__file__))
 NUM_OF_LABELS = 10
 
 # EDGE_MATRIX format: columns are connections, rows are individual nodes
@@ -26,6 +28,8 @@ def init(layer_list):
 
     model.add(k.layers.Dense(NUM_OF_LABELS, activation="softmax"))
 
+    model.compile(loss='MSE', optimizer='SGD', metrics=['accuracy'])
     return model
 
+nn = init([500, 50])
 
