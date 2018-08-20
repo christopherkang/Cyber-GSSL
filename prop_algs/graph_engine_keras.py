@@ -6,6 +6,7 @@ import pandas as pd
 os.chdir(os.path.dirname(__file__))
 NUM_OF_LABELS = 10
 EPOCHS = 100
+
 # EDGE_MATRIX format: columns are connections, rows are individual nodes
 # values are weights
 EDGE_MATRIX = pd.read_pickle("../data/pandas_weight_array.pickle")
@@ -35,8 +36,10 @@ def init(layer_list):
     for layer in layer_list:
         model.add(k.layers.Dense(layer, activation="relu"))
 
+    # add final layer
     model.add(k.layers.Dense(NUM_OF_LABELS, activation="softmax"))
 
+    # compile - the loss/metrics functions will need to be changed
     model.compile(loss='MSE', optimizer='SGD', metrics=['accuracy'])
     return model
 
