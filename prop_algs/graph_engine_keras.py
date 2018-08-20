@@ -16,6 +16,14 @@ TRAIN_STEPS = 100
 
 
 def init(layer_list):
+    """intiates the model instance with specified inputs
+
+    Arguments:
+        layer_list {list} -- list of number of neurons in hidden layers
+
+    Returns:
+        Keras Sequential Model -- model, already compiled, and ready for use
+    """
 
     model = k.models.Sequential()
 
@@ -31,5 +39,10 @@ def init(layer_list):
     model.compile(loss='MSE', optimizer='SGD', metrics=['accuracy'])
     return model
 
-nn = init([500, 50])
 
+def train(neural_net, input_features, input_labels):
+
+    neural_net.fit(input_features, input_labels, epochs=1,
+                   batch_size=input_features.shape[0])
+
+NN = init([500, 50])
