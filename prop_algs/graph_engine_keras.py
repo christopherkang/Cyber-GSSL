@@ -20,7 +20,7 @@ TRAIN_STEPS = 100
 
 
 def get_neighbors(node_num):
-    return np.count_nonzero(EDGE_MATRIX.loc[[node_num]])
+    return np.count_nonzero(EDGE_MATRIX.loc[node_num])
 
 
 def l1_norm(avec, bvec):
