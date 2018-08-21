@@ -93,7 +93,6 @@ def init(layer_list):
     Returns:
         Keras Sequential Model -- model, already compiled, and ready for use
     """
-
     model = keras.models.Sequential()
 
     # add the input layer
@@ -120,7 +119,6 @@ def one_hot(labels):
     Returns:
         np matrix -- one hot labels
     """
-
     one_hot_labels = keras.utils.to_categorical(labels,
                                                 num_classes=NUM_OF_LABELS)
     return one_hot_labels
@@ -134,7 +132,6 @@ def train(neural_net, input_features, input_labels):
         input_features {np array?} -- input features
         input_labels {matrix} -- matrix of features
     """
-
     neural_net.fit(input_features, input_labels,
                    epochs=1, batch_size=input_features.shape[0])
 
