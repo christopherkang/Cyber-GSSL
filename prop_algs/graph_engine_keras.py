@@ -24,15 +24,46 @@ EDGE_MATRIX = pd.read_pickle("../data/pandas_weight_array.pickle")
 TRAIN_STEPS = 100
 
 
+def complex_loss():
+    pass
+
+
 def get_neighbors(node_num):
+    """Returns number of neighbors this node has
+
+    Arguments:
+        node_num {int} -- Node index
+
+    Returns:
+        int -- Number of nodes specified node is connected to
+    """
     return np.count_nonzero(EDGE_MATRIX.loc[node_num])
 
 
 def l1_norm(avec, bvec):
-    return K.sum((avec-bvec), axis=-1, keepdims=True)
+    """Returns the L1 norm of two vectors (l1 regularization squared )
+
+    Arguments:
+        avec {array} -- input vector
+        bvec {array} -- input vector
+
+    Returns:
+        float -- L1 regularization squared
+    """
+
+    return K.sum(K.abs(avec-bvec), axis=-1, keepdims=True)
 
 
 def l2_norm(avec, bvec):
+    """Returns the L2 norm of two vectors (l2 regularization squared)
+
+    Arguments:
+        avec {array} -- input vector
+        bvec {array} -- input vector
+
+    Returns:
+        float -- L2 regularization squared
+    """
     return K.sum(K.square(avec-bvec), axis=-1, keepdims=True)
 
 
