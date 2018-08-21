@@ -111,9 +111,9 @@ def my_model_fn(features, labels, mode, params):
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
 
 
-training_input_fn = lambda: my_input_fn(FILL ME IN)
-validation_input_fn = lambda: my_input_fn(FILL ME IN)
-test_input_fn = lambda: my_input_fn(FILL ME IN)
+training_input_fn = lambda: my_input_fn(FILL_ME_IN)
+validation_input_fn = lambda: my_input_fn(FILL_ME_IN)
+test_input_fn = lambda: my_input_fn(FILL_ME_IN)
 
 classifier = tf.estimator.Estimator(
     model_fn=my_model_fn,
