@@ -1,13 +1,18 @@
 import os
 
 import keras
-from keras import backend as K
-import pandas as pd
 import numpy as np
+import pandas as pd
+from keras import backend as K
 
 os.chdir(os.path.dirname(__file__))
 NUM_OF_LABELS = 10
 EPOCHS = 100
+
+# CONSTANTS
+ALPHA_1 = 0.5
+ALPHA_2 = 0.5
+ALPHA_3 = 0.5
 
 # EDGE_MATRIX format: columns are connections, rows are individual nodes
 # values are weights
