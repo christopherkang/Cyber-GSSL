@@ -3,6 +3,7 @@ import os
 import keras
 from keras import backend as K
 import pandas as pd
+import numpy as np
 
 os.chdir(os.path.dirname(__file__))
 NUM_OF_LABELS = 10
@@ -14,8 +15,12 @@ EDGE_MATRIX = pd.read_pickle("../data/pandas_weight_array.pickle")
 
 # LABEL_LIST format: columns are labels and LL/LU/UU status
 # rows are individual notes
-LABEL_LIST = pd.read_pickle("I DONT KNOW THE FILE PATH")
+# LABEL_LIST = pd.read_pickle("I DONT KNOW THE FILE PATH")
 TRAIN_STEPS = 100
+
+
+def get_neighbors(node_num):
+    return np.count_nonzero(EDGE_MATRIX.loc[[node_num]])
 
 
 def l1_norm(avec, bvec):
@@ -84,6 +89,7 @@ def train(neural_net, input_features, input_labels):
 LABEL_LIST = one_hot(LABEL_LIST)
 
 NN = init([500, 50])
-
+"""
 for counter in range(EPOCHS):
     train(NN,  , )
+"""
