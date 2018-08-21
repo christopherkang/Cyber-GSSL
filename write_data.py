@@ -23,8 +23,17 @@ print("This graph has %d nodes and %d edges" % (NUM_OF_NODES, NUM_OF_EDGES))
 # create a list of nodes and their classifications
 # the second dimension is wrt time
 # ! LABEL_LIST needs to be assigned *REAL* labels!! :)
-LABEL_LIST = np.zeros((NUM_OF_NODES+1, 1))-1
+LABEL_LIST = np.zeros((NUM_OF_NODES+1))-1
 LABEL_LIST[4] = 1
+
+NODE_TYPES = []
+for node in LABEL_LIST:
+    if node != -1:
+        # SPECIFY AS LL
+    elif [LU]:
+        # SPECIFY AS LU
+    else:
+        # SPECIFY AS UU
 
 # This serves as the indices between the nodes
 # The append is necessary as it maintains the format
@@ -56,6 +65,16 @@ for origin_node in IMPORT_ARRAY:
     TOTAL_WEIGHT_ARR[int(origin_node[0])][int(origin_node[1])] = origin_node[2]
     TOTAL_WEIGHT_ARR[int(origin_node[1])][int(origin_node[0])] = origin_node[2]
 
+PANDAS_WEIGHT_ARR = pd.DataFrame(
+    TOTAL_WEIGHT_ARR[1:, 1:],
+    index=NODE_LIST,
+    columns=NODE_LIST)
+
+PANDAS_NODE_LABELS = pd.DataFrame(
+    {'label': LABEL_LIST[1:], 'type': },
+    index=NODE_LIST,
+    columns="type"
+)
 
 def write_to_disk(filename, list_to_write):
     """Writes a specific list to disk
@@ -77,9 +96,4 @@ write_to_disk('./data/node_connections.txt', NODE_CONNECTIONS)
 write_to_disk('./data/node_connect_dest.txt', NODE_CONNECT_DEST)
 write_to_disk('./data/node_connect_orig.txt', NODE_CONNECT_ORIG)
 np.savetxt("./data/edge_weights.txt", TOTAL_WEIGHT_ARR)
-PANDAS_WEIGHT_ARR = pd.DataFrame(
-    TOTAL_WEIGHT_ARR[1:, 1:],
-    index=NODE_LIST,
-    columns=NODE_LIST)
-print(PANDAS_WEIGHT_ARR.head(10))
 PANDAS_WEIGHT_ARR.to_pickle("./data/pandas_weight_array.pickle")
