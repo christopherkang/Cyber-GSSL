@@ -20,21 +20,6 @@ print("These nodes are missing")
 print(DEFAULT_NODES-NODE_LIST)
 print("This graph has %d nodes and %d edges" % (NUM_OF_NODES, NUM_OF_EDGES))
 
-# create a list of nodes and their classifications
-# the second dimension is wrt time
-# ! LABEL_LIST needs to be assigned *REAL* labels!! :)
-LABEL_LIST = np.zeros((NUM_OF_NODES+1))-1
-LABEL_LIST[4] = 1
-
-NODE_TYPES = []
-for node in LABEL_LIST:
-    if node != -1:
-        # SPECIFY AS LL
-    elif [LU]:
-        # SPECIFY AS LU
-    else:
-        # SPECIFY AS UU
-
 # This serves as the indices between the nodes
 # The append is necessary as it maintains the format
 INDEX_MARKERS = [index for index in range(IMPORT_ARRAY.shape[0])
@@ -65,16 +50,42 @@ for origin_node in IMPORT_ARRAY:
     TOTAL_WEIGHT_ARR[int(origin_node[0])][int(origin_node[1])] = origin_node[2]
     TOTAL_WEIGHT_ARR[int(origin_node[1])][int(origin_node[0])] = origin_node[2]
 
+# create a list of nodes and their classifications
+# the second dimension is wrt time
+# ! LABEL_LIST needs to be assigned *REAL* labels!! :)
+LABEL_LIST = np.zeros((NUM_OF_NODES+1), 1)-1
+LABEL_LIST[4] = 1
+
+
+def check_for_labeled_neighbors(node_index):
+    for connections in NODE_CONNECTIONS[node_index]:
+        if LABEL_LIST[connections][0] != -1:
+            return True
+    return False
+
+NODE_TYPES = np.zeros((NUM_OF_NODES+1))-1
+for node in range(1, NUM_OF_NODES+1):
+    if LABEL_LIST[node][0] != -1:
+        # SPECIFY AS LL
+        NODE_TYPES[node] = 0
+    elif check_for_labeled_neighbors(node):
+        # SPECIFY AS LU
+        NODE_TYPES[node] = 1
+    else:
+        # SPECIFY AS UU
+        NODE_TYPES[node] = 2
+
 PANDAS_WEIGHT_ARR = pd.DataFrame(
     TOTAL_WEIGHT_ARR[1:, 1:],
     index=NODE_LIST,
     columns=NODE_LIST)
 
 PANDAS_NODE_LABELS = pd.DataFrame(
-    {'label': LABEL_LIST[1:], 'type': },
+    {'label': LABEL_LIST[1:][0], 'type': NODE_TYPES[1:]},
     index=NODE_LIST,
     columns="type"
 )
+
 
 def write_to_disk(filename, list_to_write):
     """Writes a specific list to disk
