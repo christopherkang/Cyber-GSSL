@@ -1,6 +1,7 @@
 import os
 
 import keras
+from keras import backend as K
 import pandas as pd
 
 os.chdir(os.path.dirname(__file__))
@@ -15,6 +16,14 @@ EDGE_MATRIX = pd.read_pickle("../data/pandas_weight_array.pickle")
 # rows are individual notes
 LABEL_LIST = pd.read_pickle("I DONT KNOW THE FILE PATH")
 TRAIN_STEPS = 100
+
+
+def l1_norm(avec, bvec):
+    return K.sum((avec-bvec), axis=-1, keepdims=True)
+
+
+def l2_norm(avec, bvec):
+    return K.sum(K.square(avec-bvec), axis=-1, keepdims=True)
 
 
 def init(layer_list):
