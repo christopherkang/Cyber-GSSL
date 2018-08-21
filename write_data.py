@@ -54,6 +54,7 @@ NODE_CONNECTIONS.insert(0, [0])
 TOTAL_WEIGHT_ARR = np.zeros((NUM_OF_NODES+1, NUM_OF_NODES+1))
 for origin_node in IMPORT_ARRAY:
     TOTAL_WEIGHT_ARR[int(origin_node[0])][int(origin_node[1])] = origin_node[2]
+    TOTAL_WEIGHT_ARR[int(origin_node[1])][int(origin_node[0])] = origin_node[2]
 
 
 def write_to_disk(filename, list_to_write):
