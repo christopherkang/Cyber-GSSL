@@ -24,10 +24,6 @@ EDGE_MATRIX = pd.read_pickle("../data/pandas_weight_array.pickle")
 TRAIN_STEPS = 100
 
 
-def complex_loss():
-    pass
-
-
 def get_neighbors(node_num):
     """Returns number of neighbors this node has
 
@@ -50,7 +46,6 @@ def l1_norm(avec, bvec):
     Returns:
         float -- L1 regularization squared
     """
-
     return K.sum(K.abs(avec-bvec), axis=-1, keepdims=True)
 
 
@@ -65,6 +60,28 @@ def l2_norm(avec, bvec):
         float -- L2 regularization squared
     """
     return K.sum(K.square(avec-bvec), axis=-1, keepdims=True)
+
+
+def c_x(index, actual):
+    return (
+        (1/get_neighbors(index)) *
+        K.categorical_crossentropy(g_theta(EDGE_MATRIX.loc[index]), actual)
+    )
+    # NEED TO FIGURE OUT HOW TO MAKE g_theta = y_pred
+
+
+def complex_loss(u, v):
+    loss = 0
+    if [LL]:
+        loss += (ALPHA_1 * EDGE_MATRIX[u, v] * K.sum(l2_norm() +
+                 c_x(u, FILLMEIN) + c_x(v, FILLMEIN)))
+    elif [LU]:
+        loss += (ALPHA_2 * EDGE_MATRIX[u, v] * K.sum(l2_norm() +
+                 c_x(u, FILLMEIN)))
+    elif [UU]:
+        loss += ALPHA_3 * EDGE_MATRIX[u, v] * K.sum(l2_norm())
+    else:
+        raise Exception("FATAL_ERROR")
 
 
 def init(layer_list):
