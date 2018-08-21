@@ -1,6 +1,6 @@
 import os
 
-import keras as k
+import keras
 import pandas as pd
 
 os.chdir(os.path.dirname(__file__))
@@ -27,17 +27,17 @@ def init(layer_list):
         Keras Sequential Model -- model, already compiled, and ready for use
     """
 
-    model = k.models.Sequential()
+    model = keras.models.Sequential()
 
     # add the input layer
-    model.add(k.layers.Dense(500, activation="relu", input_shape=(500,)))
+    model.add(keras.layers.Dense(500, activation="relu", input_shape=(500,)))
 
     # add the desired number of layers
     for layer in layer_list:
-        model.add(k.layers.Dense(layer, activation="relu"))
+        model.add(keras.layers.Dense(layer, activation="relu"))
 
     # add final layer
-    model.add(k.layers.Dense(NUM_OF_LABELS, activation="softmax"))
+    model.add(keras.layers.Dense(NUM_OF_LABELS, activation="softmax"))
 
     # compile - the loss/metrics functions will need to be changed
     model.compile(loss='MSE', optimizer='SGD', metrics=['accuracy'])
@@ -54,7 +54,8 @@ def one_hot(labels):
         np matrix -- one hot labels
     """
 
-    one_hot_labels = k.utils.to_categorical(labels, num_classes=NUM_OF_LABELS)
+    one_hot_labels = keras.utils.to_categorical(labels,
+                                                num_classes=NUM_OF_LABELS)
     return one_hot_labels
 
 
