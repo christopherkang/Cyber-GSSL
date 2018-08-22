@@ -1,12 +1,21 @@
 """This file holds the TF algorithm used for the "neural graph engine"
 """
-import readfile
-import tensorflow as tf
+import os
+import random
+
 import pandas as pd
+import tensorflow as tf
+
+import readfile
 
 # EDGE_MATRIX format: columns are connections, rows are individual nodes
 # values are weights
+os.chdir(os.path.dirname(__file__))
 EDGE_MATRIX = pd.read_pickle("../data/pandas_weight_array.pickle")
+
+NODE_CONNECTIONS = readfile.access_file("../data/node_connections.txt")
+
+NUM_OF_LABELS = 10
 
 # LABEL_LIST format: columns are labels and LL/LU/UU status
 # rows are individual notes
@@ -23,9 +32,26 @@ ALPHA_3 = 0.5
 
 def g_theta(index):
     gtemp = None
-
-    tf.convert_to_tensor()
-    pass
+    # for each node the node is connected to
+    temp_label_hold = []
+    sum_weights = {}
+    for neighbors in NODE_CONNECTIONS[index]:
+        if LABEL_LIST[neighbors] == -1:  # only count "real" labels
+            pass
+        else:
+            try:
+                sum_weights[time_label_list[neighbors]] += weights[neighbors]
+            except:
+                sum_weights[time_label_list[neighbors]] = weights[neighbors]
+    try:
+        max_value = max(sum_weights.values())
+        max_value = list({key for key, value in sum_weights.items()
+                          if value == max_value})
+    except:
+        return -1
+    print("these are in top_labels ", max_value)
+    # a set of the most popular labels
+    return tf.convert_to_tensor(random.choice(max_value))  # this is the label
 
 
 def h_theta(index):
@@ -46,9 +72,10 @@ def get_neighbors(index):
 
 
 def c_x(index):
+    CORRECT_VECTOR
     return tf.convert_to_tensor(
               (1/get_neighbors(index)) *
-              tf.reduce_sum(tf.reduce_mean(y_ * tf.log(g_theta(index)))))
+              tf.reduce_sum(tf.reduce_mean(CORRECT_VECTOR * tf.log(g_theta(index)))))
 
 
 def custom_loss(u, v, ):
