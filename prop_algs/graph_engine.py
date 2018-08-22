@@ -19,12 +19,12 @@ ALPHA_2 = 0.5
 ALPHA_3 = 0.5
 
 # TF Variables
-g_theta_return = tf.get_variable("g_theta_return", [1])
-h_theta_return = tf.get_variable("h_theta_return", [1])
-get_nb_return = tf.get_variable("get_nb_return", [1])
-c_x_return = tf.get_variable("c_x_return", [1])
+
 
 def g_theta(index):
+    gtemp = None
+
+    tf.convert_to_tensor()
     pass
 
 
@@ -41,21 +41,14 @@ def get_neighbors(index):
     Returns:
         int -- Number of nodes specified node is connected to
     """
-    return get_nb_return.assign(np.count_nonzero(EDGE_MATRIX.loc[index]))
+
+    return tf.convert_to_tensor(np.count_nonzero(EDGE_MATRIX.loc[index]))
 
 
 def c_x(index):
-    
-    return c_x_return.assign(
-        (1/get_neighbors(index)) * 
-        tf.reduce_sum(
-            tf.reduce_mean(* g_theta(index))
-        )
-        
-    )
-
-
-
+    return tf.convert_to_tensor(
+              (1/get_neighbors(index)) *
+              tf.reduce_sum(tf.reduce_mean(y_ * tf.log(g_theta(index)))))
 
 
 def custom_loss(u, v, ):
@@ -63,6 +56,7 @@ def custom_loss(u, v, ):
 
 
     return cust_loss
+
 
 def split_data(features, labels):
 
