@@ -83,8 +83,7 @@ PANDAS_WEIGHT_ARR = pd.DataFrame(
 PANDAS_NODE_LABELS = pd.DataFrame(
     {'label': LABEL_LIST[1:][0], 'type': NODE_TYPES[1:]},
     index=NODE_LIST,
-    columns="type"
-)
+    columns="type")
 
 
 def write_to_disk(filename, list_to_write):
