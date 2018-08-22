@@ -39,10 +39,11 @@ def g_theta(index):
         if LABEL_LIST[neighbors] == -1:  # only count "real" labels
             pass
         else:
+            label_val = EDGE_MATRIX[index][neighbors]
             try:
-                sum_weights[time_label_list[neighbors]] += weights[neighbors]
+                sum_weights[LABEL_LIST[neighbors]] += label_val
             except:
-                sum_weights[time_label_list[neighbors]] = weights[neighbors]
+                sum_weights[LABEL_LIST[neighbors]] = label_val
     try:
         max_value = max(sum_weights.values())
         max_value = list({key for key, value in sum_weights.items()
@@ -51,7 +52,7 @@ def g_theta(index):
         return -1
     print("these are in top_labels ", max_value)
     # a set of the most popular labels
-    return tf.convert_to_tensor(random.choice(max_value))  # this is the label
+    return tf.convert_to_tensor(random.choice(max_value))
 
 
 def h_theta(index):
