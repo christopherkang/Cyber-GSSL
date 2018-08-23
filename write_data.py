@@ -57,6 +57,19 @@ LABEL_LIST = np.zeros((NUM_OF_NODES+1), 1)-1
 LABEL_LIST[4] = 1
 
 
+# LIST OF - CONSTANTS FOR INTERNAL USE
+def edge_type(node_1, node_2):
+    if node_1 != -1 and node_2 != -1:
+        # this is the LL case
+        return 0
+    elif node_1 == -1 and node_2 == -1:
+        # this is the UU case
+        return 2
+    else:
+        # this is the LU case
+        return 1
+
+
 def check_for_labeled_neighbors(node_index):
     for connections in NODE_CONNECTIONS[node_index]:
         if LABEL_LIST[connections][0] != -1:

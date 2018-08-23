@@ -171,7 +171,7 @@ def my_model_fn(features, labels, mode, params):
 
     # the tf.nn.softmax can't be used as an activation function, so
     # it is applied afterwords
-    logits = tf.layers.dense(net, params['n_classes'], activation=None)
+    logits = tf.layers.dense(net, params['n_classes'], activation=tf.nn.softmax)
 
     # Predict
     predicted_classes = tf.argmax(logits, 1)
