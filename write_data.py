@@ -53,16 +53,16 @@ for origin_node in IMPORT_ARRAY:
 # create a list of nodes and their classifications
 # the second dimension is wrt time
 # ! LABEL_LIST needs to be assigned *REAL* labels!! :)
-LABEL_LIST = np.zeros((NUM_OF_NODES+1), 1)-1
+LABEL_LIST = np.zeros((NUM_OF_NODES+1, 1))-1
 LABEL_LIST[4] = 1
 
 
 # LIST OF - CONSTANTS FOR INTERNAL USE
 def edge_type(node_1, node_2):
-    if node_1 != -1 and node_2 != -1:
+    if LABEL_LIST[node_1] != -1 and LABEL_LIST[node_2] != -1:
         # this is the LL case
         return 0
-    elif node_1 == -1 and node_2 == -1:
+    elif LABEL_LIST[node_1] == -1 and LABEL_LIST[node_2] == -1:
         # this is the UU case
         return 2
     else:
@@ -96,7 +96,12 @@ PANDAS_WEIGHT_ARR = pd.DataFrame(
 PANDAS_NODE_LABELS = pd.DataFrame(
     {'label': LABEL_LIST[1:][0], 'type': NODE_TYPES[1:]},
     index=NODE_LIST,
-    columns="type")
+    columns=["type"])
+
+
+TOTAL_LLUU_LIST = [[], [], []]
+for row in IMPORT_ARRAY:
+    TOTAL_LLUU_LIST[edge_type(row[0], row[1])].append([int(row[0]), int(row[1])])
 
 
 def write_to_disk(filename, list_to_write):
@@ -118,5 +123,6 @@ write_to_disk('./data/index_markers.txt', INDEX_MARKERS)
 write_to_disk('./data/node_connections.txt', NODE_CONNECTIONS)
 write_to_disk('./data/node_connect_dest.txt', NODE_CONNECT_DEST)
 write_to_disk('./data/node_connect_orig.txt', NODE_CONNECT_ORIG)
+write_to_disk('./data/total_edge_type.txt', TOTAL_LLUU_LIST)
 np.savetxt("./data/edge_weights.txt", TOTAL_WEIGHT_ARR)
 PANDAS_WEIGHT_ARR.to_pickle("./data/pandas_weight_array.pickle")

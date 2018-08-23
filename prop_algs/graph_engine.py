@@ -14,6 +14,10 @@ os.chdir(os.path.dirname(__file__))
 EDGE_MATRIX = pd.read_pickle("../data/pandas_weight_array.pickle")
 
 NODE_CONNECTIONS = readfile.access_file("../data/node_connections.txt")
+TOTAL_LLUU_LIST = readfile.access_file("../data/total_edge_type.txt")
+LIST_OF_LABELED_EDGES = TOTAL_LLUU_LIST[0]
+LIST_OF_MIXED_EDGES = TOTAL_LLUU_LIST[1]
+LIST_OF_UNLABELED_EDGES = TOTAL_LLUU_LIST[2]
 
 NUM_OF_LABELS = 10
 
