@@ -101,7 +101,8 @@ PANDAS_NODE_LABELS = pd.DataFrame(
 
 TOTAL_LLUU_LIST = [[], [], []]
 for row in IMPORT_ARRAY:
-    TOTAL_LLUU_LIST[edge_type(row[0], row[1])].append([int(row[0]), int(row[1])])
+    TOTAL_LLUU_LIST[edge_type(row[0], row[1])].append(
+        [int(row[0]), int(row[1])])
 
 
 def write_to_disk(filename, list_to_write):

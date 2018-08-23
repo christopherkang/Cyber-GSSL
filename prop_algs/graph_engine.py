@@ -92,7 +92,8 @@ def custom_loss(u, v, labels, ):
         # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_1*))
         temp_sum += tf.reduce_sum(
             ALPHA_1 * EDGE_MATRIX[u_pair, v_pair] *
-            tf.norm(h_theta(u_pair)-h_theta(v_pair)) + c_x(u, labels[u]) + c_x(v, labels[v]))
+            tf.norm(h_theta(u_pair)-h_theta(v_pair)) +
+            c_x(u, labels[u]) + c_x(v, labels[v]))
 
     for u_mixed, v_mixed in LIST_OF_MIXED_EDGES:
         # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_2*))
@@ -105,7 +106,6 @@ def custom_loss(u, v, labels, ):
         temp_sum += tf.reduce_sum(
             ALPHA_3 * EDGE_MATRIX[u_alone, v_alone] *
             tf.norm(h_theta(u_alone)-h_theta(v_alone)))
-
 
     return temp_sum
 
@@ -175,7 +175,8 @@ def my_model_fn(features, labels, mode, params):
 
     # the tf.nn.softmax can't be used as an activation function, so
     # it is applied afterwords
-    logits = tf.layers.dense(net, params['n_classes'], activation=tf.nn.softmax)
+    logits = tf.layers.dense(
+        net, params['n_classes'], activation=tf.nn.softmax)
 
     # Predict
     predicted_classes = tf.argmax(logits, 1)
