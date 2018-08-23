@@ -23,9 +23,9 @@ LABEL_LIST = pd.read_pickle("I DONT KNOW THE FILE PATH")
 TRAIN_STEPS = 100
 
 # ALPHAs
-ALPHA_1 = tf.constant(0.5, dtype=tf.float32)
-ALPHA_2 = tf.constant(0.5, dtype=tf.float32)
-ALPHA_3 = tf.constant(0.5, dtype=tf.float32)
+ALPHA_1 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_1")
+ALPHA_2 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_2")
+ALPHA_3 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_3")
 
 # TF Variables
 
@@ -72,26 +72,35 @@ def get_neighbors(index):
     return tf.convert_to_tensor(np.count_nonzero(EDGE_MATRIX.loc[index]))
 
 
-def c_x(index):
-    CORRECT_VECTOR
+def c_x(index, labels):
+
     return tf.convert_to_tensor(
               (1/get_neighbors(index)) *
-              tf.reduce_sum(tf.reduce_mean(CORRECT_VECTOR * tf.log(g_theta(index)))))
+              tf.reduce_sum(tf.reduce_mean(labels * tf.log(g_theta(index)))))
 
 
-def custom_loss(u, v, ):
+def custom_loss(u, v, labels, ):
 
     temp_sum = tf.convert_to_tensor(0)
     # iterate through each type of edge
     for u_pair, v_pair in LIST_OF_LABELED_EDGES:
         # perform ALPHA 1 loss
-        temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_1*))
+        # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_1*))
+        temp_sum += tf.reduce_sum(
+            ALPHA_1 * EDGE_MATRIX[u_pair, v_pair] *
+            tf.norm(h_theta(u_pair)-h_theta(v_pair)) + c_x(u, labels[u]) + c_x(v, labels[v]))
 
     for u_mixed, v_mixed in LIST_OF_MIXED_EDGES:
-        temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_2*))
+        # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_2*))
+        temp_sum += tf.reduce_sum(
+            ALPHA_2 * EDGE_MATRIX[u_mixed, v_mixed] *
+            tf.norm(h_theta(u_mixed)-h_theta(v_mixed)))
 
     for u_alone, v_alone in LIST_OF_ALONE_EDGES:
-        temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_3*))
+        # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_3*))
+        temp_sum += tf.reduce_sum(
+            ALPHA_3 * EDGE_MATRIX[u_alone, v_alone] *
+            tf.norm(h_theta(u_alone)-h_theta(v_alone)))
 
 
     return temp_sum
