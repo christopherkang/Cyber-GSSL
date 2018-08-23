@@ -23,9 +23,9 @@ LABEL_LIST = pd.read_pickle("I DONT KNOW THE FILE PATH")
 TRAIN_STEPS = 100
 
 # ALPHAs
-ALPHA_1 = 0.5
-ALPHA_2 = 0.5
-ALPHA_3 = 0.5
+ALPHA_1 = tf.constant(0.5, dtype=tf.float32)
+ALPHA_2 = tf.constant(0.5, dtype=tf.float32)
+ALPHA_3 = tf.constant(0.5, dtype=tf.float32)
 
 # TF Variables
 
@@ -81,9 +81,20 @@ def c_x(index):
 
 def custom_loss(u, v, ):
 
+    temp_sum = tf.convert_to_tensor(0)
+    # iterate through each type of edge
+    for u_pair, v_pair in LIST_OF_LABELED_EDGES:
+        # perform ALPHA 1 loss
+        temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_1*))
+
+    for u_mixed, v_mixed in LIST_OF_MIXED_EDGES:
+        temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_2*))
+
+    for u_alone, v_alone in LIST_OF_ALONE_EDGES:
+        temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_3*))
 
 
-    return cust_loss
+    return temp_sum
 
 
 def split_data(features, labels):
