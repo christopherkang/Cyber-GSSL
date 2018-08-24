@@ -30,9 +30,6 @@ ALPHA_1 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_1")
 ALPHA_2 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_2")
 ALPHA_3 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_3")
 
-# TF Variables
-
-
 
 def g_theta(index):
     gtemp = None
@@ -99,8 +96,9 @@ def custom_loss(labels, predicted):
         # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_2*))
         temp_sum += tf.reduce_sum(
             ALPHA_2 * EDGE_MATRIX[u_mixed, v_mixed] *
-            tf.norm(h_theta(u_mixed, predicted) - h_theta(v_mixed, predicted)) +
-            c_x(u_mixed, labels[u_mixed]))
+            tf.norm(h_theta(u_mixed, predicted) -
+                    h_theta(v_mixed, predicted)) + c_x(
+                        u_mixed, labels[u_mixed]))
 
     for u_alone, v_alone in LIST_OF_ALONE_EDGES:
         # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_3*))
@@ -132,7 +130,7 @@ def my_model_fn(dataset, hidden_nodes):
     # it is applied afterwords
     logits = tf.layers.dense(
         net, params['n_classes'], activation=tf.nn.softmax)
-    
+
     # everything except labels (pred at end)
     comb_mat = tf.concat([logits, dataset[:, :-1]], 0)
 
@@ -149,11 +147,6 @@ def my_model_fn(dataset, hidden_nodes):
     for counter in range(100):
         _, loss_value = sess.run((train, loss))
         print(loss_value)
-
-    
-
-
-
 
 # THE DATASET IS COMPRISED OF INDEX VALUES TO IDENTIFY THE NODES,
 # THE EDGE WEIGHTS, AND THE LABELS
