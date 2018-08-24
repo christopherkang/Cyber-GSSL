@@ -199,7 +199,9 @@ def my_model_fn(features, labels, mode, params):
 
     # Let's calculate loSS!!
     # THIS LOSS NEEDS TO BE FIXED
-    loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
+    # loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
+
+    match_output = tf.concat([indices, logits], 1)
 
     # Compute evaluation metrics
     accuracy = tf.metrics.accuracy(
