@@ -116,7 +116,7 @@ def split_data(features, labels):
 
 
 # used to create the feature columns necessary for the estimator
-def make_feature_columns(features):
+def make_feature_columns(features, index=True):
     """Creates feature columns for an estimator
 
     Arguments:
@@ -125,9 +125,13 @@ def make_feature_columns(features):
     Returns:
         set -- set of tf feature columns (numeric)
     """
-
-    return set(tf.feature_column.numeric_column(feature)
-               for feature in features)
+    feature_columns = set()
+    if index:
+        feature_columns += tf.feature_column.numeric_column(
+            features.index.values)
+    feature_columns += set(tf.feature_column.numeric_column(feature)
+                           for feature in features)
+    return feature_columns
 
 
 # input function
@@ -148,7 +152,9 @@ def my_input_fn(features, labels, batch_size=1, shuffle=True, num_epochs=None):
     """
 
     # convert inputs into a dataset
-    features = {key: np.array(value) for key, value in dict(features).items()}
+    features = {key: (np.array(value), index) for
+                key, value, index in
+                zip(dict(features).items(), features.index.values)}
     ds = tf.data.Dataset.from_tensor_slices(features)
 
     # This will supply them indefinitely
@@ -168,7 +174,10 @@ def my_model_fn(features, labels, mode, params):
 
     # the feature column input layer
     # applies feature columns to the data dict
-    net = tf.feature_column.input_layer(features, params['feature_columns'])
+    r_features, indices = tf.split(
+        features, [EDGE_MATRIX.shape[0], 1], 1, name="Index_Feature_Split")
+    
+    net = tf.feature_column.input_layer(r_features, params['feature_columns'])
     for units in params['hidden_units']:
         # then, pass the output through the hidden layers
         net = tf.layers.dense(net, units=units, activation=tf.nn.relu)
