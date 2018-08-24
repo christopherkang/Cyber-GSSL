@@ -122,7 +122,7 @@ def my_model_fn(dataset, hidden_nodes):
 
     net = tf.feature_column.input_layer(
         dataset, make_feature_col(EDGE_MATRIX, [0, EDGE_MATRIX.shape[1]]))
-    for units in params['hidden_units']:
+    for units in hidden_nodes:
         # then, pass the output through the hidden layers
         net = tf.layers.dense(net, units=units, activation=tf.nn.relu)
 
