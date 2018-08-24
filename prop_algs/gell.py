@@ -121,7 +121,7 @@ def make_feature_col(features, range):
 def my_model_fn(dataset, hidden_nodes):
 
     net = tf.feature_column.input_layer(
-        , )
+        dataset, make_feature_col(EDGE_MATRIX, [0, EDGE_MATRIX.shape[1]]))
     for units in params['hidden_units']:
         # then, pass the output through the hidden layers
         net = tf.layers.dense(net, units=units, activation=tf.nn.relu)
@@ -132,7 +132,6 @@ def my_model_fn(dataset, hidden_nodes):
         net, params['n_classes'], activation=tf.nn.softmax)
 
 
-features = make_feature_col(EDGE_MATRIX, [0, EDGE_MATRIX.shape[1]])
 
 
 # THE DATASET IS COMPRISED OF INDEX VALUES TO IDENTIFY THE NODES,
