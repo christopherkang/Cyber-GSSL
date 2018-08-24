@@ -60,8 +60,7 @@ def g_theta(index):
 
 
 def h_theta(index, total_matrix):
-    tf.where(tf.equal(total_matrix))
-    pass
+    return total_matrix[tf.where(tf.equal(total_matrix[:, 0], index)), -1]
 
 
 def get_neighbors(index):
@@ -93,21 +92,21 @@ def custom_loss(labels, predicted):
         # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_1*))
         temp_sum += tf.reduce_sum(
             ALPHA_1 * EDGE_MATRIX[u_pair, v_pair] *
-            tf.norm(h_theta(u_pair)-h_theta(v_pair)) +
+            tf.norm(h_theta(u_pair, predicted)-h_theta(v_pair, predicted)) +
             c_x(u_pair, labels[u_pair]) + c_x(v_pair, labels[v_pair]))
 
     for u_mixed, v_mixed in LIST_OF_MIXED_EDGES:
         # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_2*))
         temp_sum += tf.reduce_sum(
             ALPHA_2 * EDGE_MATRIX[u_mixed, v_mixed] *
-            tf.norm(h_theta(u_mixed) - h_theta(v_mixed)) +
+            tf.norm(h_theta(u_mixed, predicted) - h_theta(v_mixed, predicted)) +
             c_x(u_mixed, labels[u_mixed]))
 
     for u_alone, v_alone in LIST_OF_ALONE_EDGES:
         # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_3*))
         temp_sum += tf.reduce_sum(
             ALPHA_3 * EDGE_MATRIX[u_alone, v_alone] *
-            tf.norm(h_theta(u_alone)-h_theta(v_alone)))
+            tf.norm(h_theta(u_alone, predicted)-h_theta(v_alone, predicted)))
 
     return temp_sum
 
@@ -123,7 +122,7 @@ def make_feature_col(features, range):
 def my_model_fn(dataset, hidden_nodes):
 
     net = tf.feature_column.input_layer(
-        dataset[:, :-2], make_feature_col(
+        dataset[:, 1:-1], make_feature_col(
             EDGE_MATRIX, [0, EDGE_MATRIX.shape[1]]))
     for units in hidden_nodes:
         # then, pass the output through the hidden layers
@@ -134,7 +133,22 @@ def my_model_fn(dataset, hidden_nodes):
     logits = tf.layers.dense(
         net, params['n_classes'], activation=tf.nn.softmax)
     
-    total_matrix = tf.concat(logits, dataset[:, -2])
+    # everything except labels (pred at end)
+    comb_mat = tf.concat([logits, dataset[:, :-1]], 0)
+
+    # give two datasets - one has the labels, the other has the reps
+    loss = custom_loss(dataset[:, -1], comb_mat)
+    optimizer = tf.train.GradientDescentOperator(0.01)
+    train = optimizer.minimize(loss)
+
+    init = tf.global_variables_initializer()
+
+    sess = tf.Session()
+    sess.run(init)
+
+    for counter in range(100):
+        _, loss_value = sess.run((train, loss))
+        print(loss_value)
 
     
 
