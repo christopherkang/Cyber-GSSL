@@ -202,6 +202,7 @@ def my_model_fn(dataset, hidden_nodes):
         hidden_nodes {list} -- list of hidden_nodes
     """
 
+    # INPUT DICT
     feature_matrix = dataset[:, 1:-1]
     feature_dict = {str(key): np.array(value)
                     for key, value in dict(feature_matrix).items()}
@@ -245,9 +246,21 @@ def my_model_fn(dataset, hidden_nodes):
 EDGE_MATRIX.insert(0, column="index", value=EDGE_MATRIX.index.values)
 EDGE_MATRIX['label'] = LABEL_LIST.values
 
+# ------- ! BEGIN DATA IMPORT PIPELINE ! ------- #
 slices = tf.data.Dataset.from_tensor_slices(EDGE_MATRIX)
+
 # slices = slices.shuffle()
-slices = slices.repeat(count=None)
+slices = slices.batch(len(EDGE_MATRIX.index.values)).repeat(count=None)
+
+# THIS WILL OUTPUT, ROW BY ROW, THE NODES
 next_item = slices.make_one_shot_iterator().get_next()
 
+# ------- ! END DATA IMPORT PIPELINE ! ------- #
+
+"""
+# DEBUGGING CODE
+# print(np.transpose(EDGE_MATRIX.iloc[:1, :].values).tolist())
+with tf.Session() as sess:
+    print(sess.run(next_item))
+"""
 my_model_fn(next_item, [500, 500, 20])
