@@ -134,23 +134,24 @@ def custom_loss(labels, predicted, label_type_list):
     for u_pair, v_pair in label_type_list[0]:
         # perform ALPHA 1 loss
         # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_1*))
-        temp_sum += tf.reduce_sum(
-            ALPHA_1 * EDGE_MATRIX[u_pair, v_pair] *
-            tf.norm(h_theta(u_pair, predicted)-h_theta(v_pair, predicted)) +
+        temp_sum += ALPHA_1 * tf.reduce_sum(
+            EDGE_MATRIX[u_pair, v_pair] *
+            tf.norm(h_theta(u_pair, predicted) -
+                    h_theta(v_pair, predicted)) +
             c_x(u_pair, labels[u_pair]) + c_x(v_pair, labels[v_pair]))
 
     for u_mixed, v_mixed in label_type_list[1]:
         # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_2*))
-        temp_sum += tf.reduce_sum(
-            ALPHA_2 * EDGE_MATRIX[u_mixed, v_mixed] *
+        temp_sum += ALPHA_2 * tf.reduce_sum(
+            EDGE_MATRIX[u_mixed, v_mixed] *
             tf.norm(h_theta(u_mixed, predicted) -
-                    h_theta(v_mixed, predicted)) + c_x(
-                        u_mixed, labels[u_mixed]))
+                    h_theta(v_mixed, predicted)) +
+            c_x(u_mixed, labels[u_mixed]))
 
     for u_alone, v_alone in label_type_list[2]:
         # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_3*))
-        temp_sum += tf.reduce_sum(
-            ALPHA_3 * EDGE_MATRIX[u_alone, v_alone] *
+        temp_sum += ALPHA_3 * tf.reduce_sum(
+            EDGE_MATRIX[u_alone, v_alone] *
             tf.norm(h_theta(u_alone, predicted)-h_theta(v_alone, predicted)))
 
     return temp_sum
