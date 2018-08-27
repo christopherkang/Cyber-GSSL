@@ -67,6 +67,26 @@ def g_theta(index):
     return tf.convert_to_tensor(random.choice(max_value))
 
 
+def g_theta_total(index):
+    """Produces a NUM_OF_LABELS by 1 vector describing the probs of each label
+
+    Arguments:
+        index {int} -- integer index of the specified node
+
+    Returns:
+        tf tensor -- tensor with the values of the probabilities
+    """
+
+    average_prob_value = np.zeros((NUM_OF_LABELS, 1))
+    for neighbors in NODE_CONNECTIONS[index]:
+        if LABEL_LIST[neighbors] == -1:
+            pass
+        else:
+            average_prob_value[neighbors-1] += LABEL_LIST[neighbors]
+    return tf.convert_to_tensor(average_prob_value)
+            
+
+
 def h_theta(index, total_matrix):
     return total_matrix[tf.where(tf.equal(total_matrix[:, 0], index)), -1]
 
@@ -85,10 +105,27 @@ def get_neighbors(index):
 
 
 def c_x(index, labels):
+    """This function finds the cross entropy described in the loss fn
 
+    Arguments:
+        index {tf tensor} -- should be a vector with the indices of relevant
+            nodes
+        labels {tf tensor} -- should be a vector with the actual labels of
+            the relevant ndoes
+
+    Returns:
+        tf tensor -- returns a tensor of all the answers
+    """
+
+    # THIS FUNCTION IS RELATIVELY COMPLEX: LET'S BREAK IT DOWN
+    # FIRST, WE ARE CONVERTING THE VALUE TO A TENSOR
+    # THEN, WE USE MAP_FN TO APPLY GET_NEIGHBORS TO EACH ELEMENT IN INDEX
+    # NEXT, WE NEED TO 
     return tf.convert_to_tensor(
               (1/get_neighbors(index)) *
-              tf.reduce_sum(tf.reduce_mean(labels * tf.log(g_theta(index)))))
+              tf.reduce_sum(
+                  tf.reduce_mean(
+                      labels * tf.log(g_theta_total(index)))))
 
 
 def custom_loss(labels, predicted, label_type_list):
