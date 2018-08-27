@@ -194,6 +194,11 @@ def make_feature_col(features, inp_range):
     return temp_feature_cols
 
 
+def make_dict_feature_col(dict_of_features):
+    return [tf.feature_column.numeric_column(str(col))
+            for col in dict_of_features]
+
+
 def my_model_fn(dataset, hidden_nodes):
     """NN Model function
 
@@ -202,17 +207,11 @@ def my_model_fn(dataset, hidden_nodes):
         hidden_nodes {list} -- list of hidden_nodes
     """
 
-    # INPUT DICT
-    feature_matrix = dataset[:, 1:-1]
-    feature_dict = {str(key): np.array(value)
-                    for key, value in dict(feature_matrix).items()}
-
     # THIS CREATES THE INPUT LAYER AND IMPORTS DATA
     net = tf.feature_column.input_layer(
-        feature_dict, make_feature_col(
-            feature_matrix, [0, feature_matrix.shape[1]]))
+        dataset[0], make_dict_feature_col(dataset[0]))
 
-    # BUILDS HIDDEN LAYERS  
+    # BUILDS HIDDEN LAYERS
     for units in hidden_nodes:
         net = tf.layers.dense(net, units=units, activation=tf.nn.relu)
 
@@ -243,14 +242,24 @@ def my_model_fn(dataset, hidden_nodes):
 # THE EDGE WEIGHTS, AND THE LABELS
 
 # TEMP CODE FOR DEBUGGING
-EDGE_MATRIX.insert(0, column="index", value=EDGE_MATRIX.index.values)
-EDGE_MATRIX['label'] = LABEL_LIST.values
+# EDGE_MATRIX.insert(0, column="index", value=EDGE_MATRIX.index.values)
+# EDGE_MATRIX['label'] = LABEL_LIST.values
 
 # ------- ! BEGIN DATA IMPORT PIPELINE ! ------- #
-slices = tf.data.Dataset.from_tensor_slices(EDGE_MATRIX)
+# slices = tf.data.Dataset.from_tensor_slices(EDGE_MATRIX)
 
-# slices = slices.shuffle()
-slices = slices.batch(len(EDGE_MATRIX.index.values)).repeat(count=None)
+# THE USE OF TUPLES IS PREFERABLE, AS IN THE END EVERYTHING IS A DICT
+
+zipped_features = {str(key): np.array(value)
+                   for key, value in dict(EDGE_MATRIX).items()}
+
+slices = tf.data.Dataset.from_tensor_slices(
+    (zipped_features, np.arange(start=1, stop=501), LABEL_LIST.values))
+
+# slices = slices.shuffle(100)
+# slices = slices.batch(len(EDGE_MATRIX.index.values)).repeat(count=None)
+
+slices = slices.batch(1).repeat(count=None)
 
 # THIS WILL OUTPUT, ROW BY ROW, THE NODES
 next_item = slices.make_one_shot_iterator().get_next()
@@ -261,6 +270,10 @@ next_item = slices.make_one_shot_iterator().get_next()
 # DEBUGGING CODE
 # print(np.transpose(EDGE_MATRIX.iloc[:1, :].values).tolist())
 with tf.Session() as sess:
-    print(sess.run(next_item))
+    print(sess.run(next_item[0]))
+    # print(sess.run(next_item))
 """
+
+
+
 my_model_fn(next_item, [500, 500, 20])
