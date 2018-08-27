@@ -49,14 +49,14 @@ def g_theta(index):
     temp_label_hold = []
     sum_weights = {}
     for neighbors in NODE_CONNECTIONS[index]:
-        if LABEL_LIST[neighbors] == -1:  # only count "real" labels
+        if LABEL_LIST.loc[neighbors] == -1:  # only count "real" labels
             pass
         else:
             label_val = EDGE_MATRIX[index][neighbors]
             try:
-                sum_weights[LABEL_LIST[neighbors]] += label_val
+                sum_weights[LABEL_LIST.loc[neighbors]] += label_val
             except:
-                sum_weights[LABEL_LIST[neighbors]] = label_val
+                sum_weights[LABEL_LIST.loc[neighbors]] = label_val
     try:
         max_value = max(sum_weights.values())
         max_value = list({key for key, value in sum_weights.items()
@@ -80,10 +80,10 @@ def g_theta_total(index):
 
     average_prob_value = np.zeros((NUM_OF_LABELS, 1))
     for neighbors in NODE_CONNECTIONS[index]:
-        if LABEL_LIST[neighbors] == -1:
+        if LABEL_LIST.loc[neighbors] == -1:
             pass
         else:
-            average_prob_value[neighbors-1] += LABEL_LIST[neighbors]
+            average_prob_value[neighbors-1] += LABEL_LIST.loc[neighbors]
     return tf.convert_to_tensor(average_prob_value)
 
 
