@@ -83,11 +83,24 @@ def g_theta_total(index):
             pass
         else:
             average_prob_value[neighbors-1] += LABEL_LIST[neighbors]
-    return tf.convert_to_tensor(average_prob_value)         
+    return tf.convert_to_tensor(average_prob_value)
 
 
 def h_theta(index, total_matrix):
-    return total_matrix[tf.where(tf.equal(total_matrix[:, 0], index)), -1]
+    """Returns the H_theta value associated with the loss function
+    Essentially the output of the neural network
+
+    Arguments:
+        index {int} -- the node's index
+        total_matrix {tf tensor} -- tensor with all of the predictions
+
+    Returns:
+        tf tensor -- tensor output of the neural network for a specific index
+    """
+
+    return tf.convert_to_tensor(
+        total_matrix[tf.where(tf.equal(
+            total_matrix[:, 0], index)), -1])
 
 
 def get_neighbors(index):
@@ -128,6 +141,16 @@ def c_x(index, labels):
 
 
 def custom_loss(labels, predicted, label_type_list):
+    """The custom loss function for the NN
+
+    Arguments:
+        labels {tf tensor} -- list of labels
+        predicted {tf tensor} -- list of predicted labels
+        label_type_list {pandas DF} -- DF with all of the edge types
+
+    Returns:
+        tf tensor -- scalar of the final loss value
+    """
 
     temp_sum = tf.convert_to_tensor(0)
     # iterate through each type of edge
