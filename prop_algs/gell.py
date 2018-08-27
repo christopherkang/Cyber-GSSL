@@ -1,31 +1,42 @@
 """GRAPH ENGINE: LOW LEVEL (GELL)
 """
 
-import tensorflow as tf
 import pandas as pd
+import tensorflow as tf
 
 import readfile
 
+# THIS IS NECESSARY FOR WINDOWS SYSTEMS
 os.chdir(os.path.dirname(__file__))
 
 # EDGE_MATRIX format: columns are connections, rows are individual nodes
 # values are weights
 EDGE_MATRIX = pd.read_pickle("../data/pandas_weight_array.pickle")
+
 # LABEL_LIST format: columns are labels and LL/LU/UU status
 # rows are individual notes
 LABEL_LIST = pd.read_pickle("I DONT KNOW THE FILE PATH")
 
+# THIS IS A NESTED LIST THAT DESCRIBES THE CONNECTIONS EACH NODE HAS
+# BE MINDFUL THAT THE 0TH INDEX IS ASSOCIATED WITH AN IMAGINARY "0TH"
+# NODE, AND THEREFORE HAS NO CONNECTIONS
 NODE_CONNECTIONS = readfile.access_file("../data/node_connections.txt")
+
+# THIS IS A NESTED LIST THAT DESCRIBES THE TYPE OF EACH EDGE
 TOTAL_LLUU_LIST = readfile.access_file("../data/total_edge_type.txt")
+
+# THESE VARIABLES ARE NOW OBSOLETE AND ARE KEPT FOR DEBUGGING
 LIST_OF_LABELED_EDGES = TOTAL_LLUU_LIST[0]
 LIST_OF_MIXED_EDGES = TOTAL_LLUU_LIST[1]
 LIST_OF_ALONE_EDGES = TOTAL_LLUU_LIST[2]
 
+# NUMBER OF LABELS - THIS SHOULD BE DYNAMICALLY ASSIGNED IN THE FUTURE
 NUM_OF_LABELS = 10
 
+# NUMBER OF STEPS TO TRAIN
 TRAIN_STEPS = 100
 
-# ALPHAs
+# ALPHAs - THESE ARE USED AS CONSTANTS IN MULTIPLICATION
 ALPHA_1 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_1")
 ALPHA_2 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_2")
 ALPHA_3 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_3")
