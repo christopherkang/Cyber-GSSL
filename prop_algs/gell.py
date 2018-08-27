@@ -83,8 +83,7 @@ def g_theta_total(index):
             pass
         else:
             average_prob_value[neighbors-1] += LABEL_LIST[neighbors]
-    return tf.convert_to_tensor(average_prob_value)
-            
+    return tf.convert_to_tensor(average_prob_value)         
 
 
 def h_theta(index, total_matrix):
@@ -111,7 +110,7 @@ def c_x(index, labels):
         index {tf tensor} -- should be a vector with the indices of relevant
             nodes
         labels {tf tensor} -- should be a vector with the actual labels of
-            the relevant ndoes
+            the relevant nodes. It should be a one-hot vector.
 
     Returns:
         tf tensor -- returns a tensor of all the answers
@@ -120,12 +119,12 @@ def c_x(index, labels):
     # THIS FUNCTION IS RELATIVELY COMPLEX: LET'S BREAK IT DOWN
     # FIRST, WE ARE CONVERTING THE VALUE TO A TENSOR
     # THEN, WE USE MAP_FN TO APPLY GET_NEIGHBORS TO EACH ELEMENT IN INDEX
-    # NEXT, WE NEED TO 
-    return tf.convert_to_tensor(
-              (1/get_neighbors(index)) *
-              tf.reduce_sum(
-                  tf.reduce_mean(
-                      labels * tf.log(g_theta_total(index)))))
+    # NEXT, WE NEED TO SUM OVER THE PRODUCT AND LABELS
+    # USING ONE_HOT, WE CAN CREATE A ONE HOT PROB VECTOR WITH 1 AS TRUE
+    # WE MULTIPLY!
+    return tf.convert_to_tensor((1/get_neighbors(index))) * tf.reduce_sum(
+                  tf.one_hot(labels, depth=NUM_OF_LABELS) *
+                  tf.log(g_theta_total(index)))
 
 
 def custom_loss(labels, predicted, label_type_list):
