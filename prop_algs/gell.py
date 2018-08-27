@@ -80,11 +80,11 @@ def c_x(index, labels):
               tf.reduce_sum(tf.reduce_mean(labels * tf.log(g_theta(index)))))
 
 
-def custom_loss(labels, predicted):
+def custom_loss(labels, predicted, label_type_list):
 
     temp_sum = tf.convert_to_tensor(0)
     # iterate through each type of edge
-    for u_pair, v_pair in LIST_OF_LABELED_EDGES:
+    for u_pair, v_pair in label_type_list[0]:
         # perform ALPHA 1 loss
         # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_1*))
         temp_sum += tf.reduce_sum(
@@ -92,7 +92,7 @@ def custom_loss(labels, predicted):
             tf.norm(h_theta(u_pair, predicted)-h_theta(v_pair, predicted)) +
             c_x(u_pair, labels[u_pair]) + c_x(v_pair, labels[v_pair]))
 
-    for u_mixed, v_mixed in LIST_OF_MIXED_EDGES:
+    for u_mixed, v_mixed in label_type_list[1]:
         # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_2*))
         temp_sum += tf.reduce_sum(
             ALPHA_2 * EDGE_MATRIX[u_mixed, v_mixed] *
@@ -100,7 +100,7 @@ def custom_loss(labels, predicted):
                     h_theta(v_mixed, predicted)) + c_x(
                         u_mixed, labels[u_mixed]))
 
-    for u_alone, v_alone in LIST_OF_ALONE_EDGES:
+    for u_alone, v_alone in label_type_list[2]:
         # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_3*))
         temp_sum += tf.reduce_sum(
             ALPHA_3 * EDGE_MATRIX[u_alone, v_alone] *
@@ -135,7 +135,7 @@ def my_model_fn(dataset, hidden_nodes):
     comb_mat = tf.concat([logits, dataset[:, :-1]], 0)
 
     # give two datasets - one has the labels, the other has the reps
-    loss = custom_loss(dataset[:, -1], comb_mat)
+    loss = custom_loss(dataset[:, -1], comb_mat, TOTAL_LLUU_LIST)
     optimizer = tf.train.GradientDescentOperator(0.01)
     train = optimizer.minimize(loss)
 
