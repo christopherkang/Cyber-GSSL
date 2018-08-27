@@ -1,6 +1,7 @@
 """GRAPH ENGINE: LOW LEVEL (GELL)
 """
 
+import numpy as np
 import pandas as pd
 import tensorflow as tf
 
@@ -16,7 +17,9 @@ EDGE_MATRIX = pd.read_pickle("../data/pandas_weight_array.pickle")
 
 # LABEL_LIST format: columns are labels and LL/LU/UU status
 # rows are individual notes
-LABEL_LIST = pd.read_pickle("I DONT KNOW THE FILE PATH")
+# LABEL_LIST = pd.read_pickle("I DONT KNOW THE FILE PATH")
+LABEL_LIST = pd.DataFrame(
+    np.zeros(500)-1, index=range(1, 501), columns=["LABELS"])
 
 # THIS IS A NESTED LIST THAT DESCRIBES THE CONNECTIONS EACH NODE HAS
 # BE MINDFUL THAT THE 0TH INDEX IS ASSOCIATED WITH AN IMAGINARY "0TH"
@@ -183,11 +186,11 @@ def custom_loss(labels, predicted, label_type_list):
     return temp_sum
 
 
-def make_feature_col(features, range):
-    temp_feature_cols = set()
-    for col in range(range[0], range[1]):
-        temp_feature_cols += tf.feature_column.numeric_column(
-            features.columns.values[col])
+def make_feature_col(features, inp_range):
+    temp_feature_cols = []
+    for col in range(inp_range[0], inp_range[1]):
+        temp_feature_cols.append(tf.feature_column.numeric_column(
+            str(features.columns.values[col])))
     return temp_feature_cols
 
 
@@ -199,17 +202,22 @@ def my_model_fn(dataset, hidden_nodes):
         hidden_nodes {list} -- list of hidden_nodes
     """
 
+    feature_matrix = dataset[:, 1:-1]
+    feature_dict = {str(key): np.array(value)
+                    for key, value in dict(feature_matrix).items()}
+
+    # THIS CREATES THE INPUT LAYER AND IMPORTS DATA
     net = tf.feature_column.input_layer(
-        dataset[:, 1:-1], make_feature_col(
-            EDGE_MATRIX, [0, EDGE_MATRIX.shape[1]]))
+        feature_dict, make_feature_col(
+            feature_matrix, [0, feature_matrix.shape[1]]))
+
+    # BUILDS HIDDEN LAYERS  
     for units in hidden_nodes:
-        # then, pass the output through the hidden layers
         net = tf.layers.dense(net, units=units, activation=tf.nn.relu)
 
-    # the tf.nn.softmax can't be used as an activation function, so
-    # it is applied afterwords
+    # BUILDS THE FINAL LAYERS
     logits = tf.layers.dense(
-        net, params['n_classes'], activation=tf.nn.softmax)
+        net, NUM_OF_LABELS, activation=tf.nn.softmax)
 
     # everything except labels (pred at end)
     # this makes a larger matrix with the indices, logit outputs, and inputs
@@ -223,7 +231,7 @@ def my_model_fn(dataset, hidden_nodes):
     init = tf.global_variables_initializer()
 
     with tf.Session() as sess:
-        writer = tf.summary.FileWriter("/tmp/log/...", sess.graph)
+        writer = tf.summary.FileWriter("./tmp/log/...", sess.graph)
         sess.run(init)
         for counter in range(100):
             _, loss_value = sess.run((train, loss))
@@ -233,8 +241,13 @@ def my_model_fn(dataset, hidden_nodes):
 # THE DATASET IS COMPRISED OF INDEX VALUES TO IDENTIFY THE NODES,
 # THE EDGE WEIGHTS, AND THE LABELS
 
-slices = tf.data.Dataset.from_tensor_slices(
-    (EDGE_MATRIX.index.values, EDGE_MATRIX.values, LABEL_LIST.values))
-slices = slices.shuffle()
-slices = slices.batch(30).repeat(count=None)
+# TEMP CODE FOR DEBUGGING
+EDGE_MATRIX.insert(0, column="index", value=EDGE_MATRIX.index.values)
+EDGE_MATRIX['label'] = LABEL_LIST.values
+
+slices = tf.data.Dataset.from_tensor_slices(EDGE_MATRIX)
+# slices = slices.shuffle()
+slices = slices.repeat(count=None)
 next_item = slices.make_one_shot_iterator().get_next()
+
+my_model_fn(next_item, [500, 500, 20])
