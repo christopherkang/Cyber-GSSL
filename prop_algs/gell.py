@@ -86,8 +86,16 @@ def g_theta_total(index):
         if LABEL_LIST.loc[neighbors] == -1:
             pass
         else:
-            average_prob_value[neighbors-1] += LABEL_LIST.loc[neighbors]
-    return tf.convert_to_tensor(average_prob_value)
+            average_prob_value[LABEL_LIST.loc[neighbors]] += EDGE_MATRIX[
+                index, neighbors]
+    if sum(average_prob_value) == 0:
+        return tf.convert_to_tensor(
+            np.zeros((NUM_OF_LABELS, 1)) + 1/NUM_OF_LABELS)
+    return tf.convert_to_tensor(average_prob_value/sum(average_prob_value))
+
+
+def find_value(index, vector):
+    return tf.where(tf.equal(vector, index), name="find_value_fn")
 
 
 def h_theta(index, total_matrix):
@@ -103,8 +111,11 @@ def h_theta(index, total_matrix):
     """
 
     return tf.convert_to_tensor(
-        total_matrix[tf.where(tf.equal(
-            total_matrix[:, 0], index)), 1:(NUM_OF_LABELS+1)])
+        total_matrix[total_matrix, index, 1:(NUM_OF_LABELS+1)])
+
+
+def d_term_h(index_u, index_v, nn_output):
+    return tf.norm(nn_output[true_u_index] - nn_output[true_v_index])
 
 
 def get_neighbors(index):
@@ -127,7 +138,7 @@ def c_x(index, labels):
         index {tf tensor} -- should be a vector with the indices of relevant
             nodes
         labels {tf tensor} -- should be a vector with the actual labels of
-            the relevant nodes. It should be a one-hot vector.
+            the relevant nodes. It should NOT be a one-hot vector.
 
     Returns:
         tf tensor -- returns a tensor of all the answers
@@ -144,7 +155,7 @@ def c_x(index, labels):
                   tf.log(g_theta_total(index)))
 
 
-def custom_loss(labels, predicted, label_type_list):
+def custom_loss(labels, predicted, reference_vector, label_type_list):
     """The custom loss function for the NN
 
     Arguments:
@@ -156,32 +167,34 @@ def custom_loss(labels, predicted, label_type_list):
         tf tensor -- scalar of the final loss value
     """
 
-    # WARNING - THIS REQUIRES THE LABELS/PREDICTED TO BE IN NUMERICAL ORDER!
-    # ITEM TO BE FIXED
+    # RELATIVE INDEX VARS ARE THE INDICES OF THE NODE IN LABELS/PREDICTED VECS
     temp_sum = tf.convert_to_tensor(0)
+
     # iterate through each type of edge
     for u_pair, v_pair in label_type_list[0]:
-        # perform ALPHA 1 loss
-        # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_1*))
+        relative_index_u = find_value(u_pair, reference_vector)
+        relative_index_v = find_value(v_pair, reference_vector)
         temp_sum += ALPHA_1 * tf.reduce_sum(
             EDGE_MATRIX[u_pair, v_pair] *
-            tf.norm(h_theta(u_pair, predicted) -
-                    h_theta(v_pair, predicted)) +
+            d_term_h(relative_index_u, relative_index_v, predicted) +
             c_x(u_pair, labels[u_pair]) + c_x(v_pair, labels[v_pair]))
 
     for u_mixed, v_mixed in label_type_list[1]:
         # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_2*))
+        relative_index_u = find_value(u_mixed, reference_vector)
+        relative_index_v = find_value(v_mixed, reference_vector)
         temp_sum += ALPHA_2 * tf.reduce_sum(
             EDGE_MATRIX[u_mixed, v_mixed] *
-            tf.norm(h_theta(u_mixed, predicted) -
-                    h_theta(v_mixed, predicted)) +
+            d_term_h(relative_index_u, relative_index_v, predicted) +
             c_x(u_mixed, labels[u_mixed]))
 
     for u_alone, v_alone in label_type_list[2]:
         # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_3*))
+        relative_index_u = find_value(u_alone, reference_vector)
+        relative_index_v = find_value(v_alone, reference_vector)
         temp_sum += ALPHA_3 * tf.reduce_sum(
             EDGE_MATRIX[u_alone, v_alone] *
-            tf.norm(h_theta(u_alone, predicted)-h_theta(v_alone, predicted)))
+            d_term_h(relative_index_u, relative_index_v, predicted))
 
     return temp_sum
 
@@ -221,10 +234,10 @@ def my_model_fn(dataset, hidden_nodes):
 
     # everything except labels (pred at end)
     # this makes a larger matrix with the indices, logit outputs, and inputs
-    comb_mat = tf.concat([dataset[:, 0], logits, dataset[:, 1:-1]], 0)
+    # comb_mat = tf.concat([dataset[1], dataset[0], logits], 0)
 
     # give two datasets - one has the labels, the other has the reps
-    loss = custom_loss(dataset[:, -1], comb_mat, TOTAL_LLUU_LIST)
+    loss = custom_loss(dataset[2], logits, dataset[1], TOTAL_LLUU_LIST)
     optimizer = tf.train.GradientDescentOperator(0.01)
     train = optimizer.minimize(loss)
 
