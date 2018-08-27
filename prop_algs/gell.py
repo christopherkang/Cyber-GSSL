@@ -100,7 +100,7 @@ def h_theta(index, total_matrix):
 
     return tf.convert_to_tensor(
         total_matrix[tf.where(tf.equal(
-            total_matrix[:, 0], index)), -1])
+            total_matrix[:, 0], index)), 1:(NUM_OF_LABELS+1)])
 
 
 def get_neighbors(index):
@@ -152,6 +152,8 @@ def custom_loss(labels, predicted, label_type_list):
         tf tensor -- scalar of the final loss value
     """
 
+    # WARNING - THIS REQUIRES THE LABELS/PREDICTED TO BE IN NUMERICAL ORDER!
+    # ITEM TO BE FIXED
     temp_sum = tf.convert_to_tensor(0)
     # iterate through each type of edge
     for u_pair, v_pair in label_type_list[0]:
@@ -189,6 +191,12 @@ def make_feature_col(features, range):
 
 
 def my_model_fn(dataset, hidden_nodes):
+    """NN Model function
+
+    Arguments:
+        dataset {pd DF} -- dataset with indices
+        hidden_nodes {list} -- list of hidden_nodes
+    """
 
     net = tf.feature_column.input_layer(
         dataset[:, 1:-1], make_feature_col(
@@ -203,7 +211,8 @@ def my_model_fn(dataset, hidden_nodes):
         net, params['n_classes'], activation=tf.nn.softmax)
 
     # everything except labels (pred at end)
-    comb_mat = tf.concat([logits, dataset[:, :-1]], 0)
+    # this makes a larger matrix with the indices, logit outputs, and inputs
+    comb_mat = tf.concat([dataset[:, 0], logits, dataset[:, 1:-1]], 0)
 
     # give two datasets - one has the labels, the other has the reps
     loss = custom_loss(dataset[:, -1], comb_mat, TOTAL_LLUU_LIST)
