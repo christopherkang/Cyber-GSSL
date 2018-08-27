@@ -4,6 +4,7 @@
 import pandas as pd
 import tensorflow as tf
 
+import os
 import readfile
 
 # THIS IS NECESSARY FOR WINDOWS SYSTEMS
@@ -221,12 +222,13 @@ def my_model_fn(dataset, hidden_nodes):
 
     init = tf.global_variables_initializer()
 
-    sess = tf.Session()
-    sess.run(init)
-
-    for counter in range(100):
-        _, loss_value = sess.run((train, loss))
-        print(loss_value)
+    with tf.Session() as sess:
+        writer = tf.summary.FileWriter("/tmp/log/...", sess.graph)
+        sess.run(init)
+        for counter in range(100):
+            _, loss_value = sess.run((train, loss))
+            print(loss_value)
+        writer.close()
 
 # THE DATASET IS COMPRISED OF INDEX VALUES TO IDENTIFY THE NODES,
 # THE EDGE WEIGHTS, AND THE LABELS
