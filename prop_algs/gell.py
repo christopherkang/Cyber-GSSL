@@ -151,6 +151,8 @@ def c_x(index, labels):
     # NEXT, WE NEED TO SUM OVER THE PRODUCT AND LABELS
     # USING ONE_HOT, WE CAN CREATE A ONE HOT PROB VECTOR WITH 1 AS TRUE
     # WE MULTIPLY!
+    if labels==-1:
+        
     return tf.convert_to_tensor((1/get_neighbors(index))) * tf.reduce_sum(
                   tf.one_hot(labels, depth=NUM_OF_LABELS) *
                   tf.log(g_theta_total(index)))
