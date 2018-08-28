@@ -48,6 +48,9 @@ NUM_OF_LABELS = 10
 # NUMBER OF STEPS TO TRAIN
 TRAIN_STEPS = 100
 
+# PROPORTION OF EDGES TO SAMPLE
+SAMPLE_CONST = 0.1
+
 # ALPHAs - THESE ARE USED AS CONSTANTS IN MULTIPLICATION
 ALPHA_1 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_1")
 ALPHA_2 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_2")
@@ -194,13 +197,10 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
     # RELATIVE INDEX VARS ARE THE INDICES OF THE NODE IN LABELS/PREDICTED VECS
     temp_sum = tf.convert_to_tensor(0, dtype=tf.float32)
 
-    # NEED TO ADD MINIBATCH SAMPLING FOR THE EDGE ITERATION TO REDUCE COST
+    LL_to_sample = round(len(label_type_list[0]) * SAMPLE_CONST)
+    LU_to_sample = round(len(label_type_list[1]) * SAMPLE_CONST)
+    UU_to_sample = round(len(label_type_list[2]) * SAMPLE_CONST)
 
-    # label_type_list[0] = np.random.choice(
-    #     label_type_list[0], round(len(label_type_list)/10))
-    LL_to_sample = round(len(label_type_list[0])/100)
-    LU_to_sample = round(len(label_type_list[1])/100)
-    UU_to_sample = round(len(label_type_list[2])/100)
     label_type_list[1] = [label_type_list[1][x]
                           for x in np.random.randint(
                               0, len(label_type_list[1]), LU_to_sample)]
@@ -208,6 +208,7 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
     label_type_list[2] = [label_type_list[2][x]
                           for x in np.random.randint(
                               0, len(label_type_list[2]), UU_to_sample)]
+
     # iterate through each type of edge
     if label_type_list[0]:
         with tf.name_scope('Labeled_edges') as scope:
@@ -219,7 +220,6 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
                 lambda a: tf.to_float(find_value(a, reference_vector)),
                 label_tensor)
             relative_indices = tf.reshape(relative_indices, [2, -1])
-            print(relative_indices.get_shape())
             norm_tensor = tf.expand_dims(
                 d_term_h_index(relative_indices, predicted), axis=0)
             weight_norm_product = tf.matmul(weight_tensor, norm_tensor)
@@ -239,7 +239,6 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
                 lambda a: tf.to_float(find_value(a, reference_vector)),
                 label_tensor)
             relative_indices = tf.reshape(relative_indices, [2, -1])
-            print(relative_indices.get_shape())
             norm_tensor = tf.expand_dims(
                 d_term_h_index(relative_indices, predicted), axis=0)
             weight_norm_product = tf.matmul(weight_tensor, norm_tensor)
@@ -248,6 +247,7 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
                                       for u_c, v_c in label_type_list[0]]))
             temp_sum += ALPHA_2 * (weight_norm_product + c_uv_summed_term)
 
+    """
     if label_type_list[2]:
         with tf.name_scope('Unlabeled_edges') as scope:
             weight_tensor = tf.expand_dims(tf.convert_to_tensor(
@@ -262,7 +262,20 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
                 d_term_h_index(relative_indices, predicted), axis=0)
             weight_norm_product = tf.matmul(weight_tensor, norm_tensor)
             temp_sum += ALPHA_3 * weight_norm_product
-
+    """
+    with tf.name_scope('Unlabeled_edges') as scope:
+        weight_tensor = tf.expand_dims(tf.convert_to_tensor(
+            [EDGE_MATRIX.loc[u_w, v_w]
+                for u_w, v_w in label_type_list[1]]), 1)
+        label_tensor = tf.reshape(label_type_list[1], [-1])
+        relative_indices = tf.map_fn(
+            lambda a: tf.to_float(find_value(a, reference_vector)),
+            label_tensor)
+        relative_indices = tf.reshape(relative_indices, [2, -1])
+        norm_tensor = tf.expand_dims(
+            d_term_h_index(relative_indices, predicted), axis=0)
+        weight_norm_product = tf.matmul(weight_tensor, norm_tensor)
+        temp_sum += ALPHA_3 * weight_norm_product
     return temp_sum
 
 
@@ -298,16 +311,7 @@ def my_model_fn(dataset, hidden_nodes):
     # BUILDS THE FINAL LAYERS
     logits = tf.layers.dense(
         net, NUM_OF_LABELS, activation=tf.nn.softmax)
-    """
-    logits = tf.layers.dense(
-        net, NUM_OF_LABELS, activation=None
-    )
-    """
-    # everything except labels (pred at end)
-    # this makes a larger matrix with the indices, logit outputs, and inputs
-    # comb_mat = tf.concat([dataset[1], dataset[0], logits], 0)
 
-    # give two datasets - one has the labels, the other has the reps
     loss = custom_loss(dataset[2], logits, dataset[1], TOTAL_LLUU_LIST)
     # loss = tf.losses.mean_squared_error(
     #   dataset[2], tf.squeeze(tf.argmax(logits, axis=1)))
@@ -342,7 +346,9 @@ zipped_features = {str(key): np.array(value)
                    for key, value in dict(EDGE_MATRIX).items()}
 
 slices = tf.data.Dataset.from_tensor_slices(
-    (zipped_features, np.arange(start=1, stop=501), LABEL_LIST.values.astype(int)))
+    (zipped_features,
+     np.arange(start=1, stop=501),
+     LABEL_LIST.values.astype(int)))
 
 # slices = slices.shuffle(100)
 # slices = slices.batch(len(EDGE_MATRIX.index.values)).repeat(count=None)
@@ -361,7 +367,5 @@ with tf.Session() as sess:
     print(sess.run(next_item[0]))
     # print(sess.run(next_item))
 """
-
-
 
 my_model_fn(next_item, [500, 500, 20])
