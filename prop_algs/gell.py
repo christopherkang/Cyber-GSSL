@@ -95,7 +95,8 @@ def g_theta_total(index):
 
 
 def find_value(index, vector):
-    return tf.where(tf.equal(vector, index), name="find_value_fn")
+    co_ords = tf.where(tf.equal(vector, index), name="find_value_fn")[0]
+    return vector[co_ords[0]]
 
 
 def h_theta(index, total_matrix):
@@ -115,7 +116,7 @@ def h_theta(index, total_matrix):
 
 
 def d_term_h(index_u, index_v, nn_output):
-    return tf.norm(nn_output[true_u_index] - nn_output[true_v_index])
+    return tf.norm(nn_output[index_u] - nn_output[index_v])
 
 
 def get_neighbors(index):
@@ -175,7 +176,7 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
         relative_index_u = find_value(u_pair, reference_vector)
         relative_index_v = find_value(v_pair, reference_vector)
         temp_sum += ALPHA_1 * tf.reduce_sum(
-            EDGE_MATRIX[u_pair, v_pair] *
+            EDGE_MATRIX.loc[u_pair, v_pair] *
             d_term_h(relative_index_u, relative_index_v, predicted) +
             c_x(u_pair, labels[u_pair]) + c_x(v_pair, labels[v_pair]))
 
@@ -184,7 +185,7 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
         relative_index_u = find_value(u_mixed, reference_vector)
         relative_index_v = find_value(v_mixed, reference_vector)
         temp_sum += ALPHA_2 * tf.reduce_sum(
-            EDGE_MATRIX[u_mixed, v_mixed] *
+            EDGE_MATRIX.loc[u_mixed, v_mixed] *
             d_term_h(relative_index_u, relative_index_v, predicted) +
             c_x(u_mixed, labels[u_mixed]))
 
@@ -193,7 +194,7 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
         relative_index_u = find_value(u_alone, reference_vector)
         relative_index_v = find_value(v_alone, reference_vector)
         temp_sum += ALPHA_3 * tf.reduce_sum(
-            EDGE_MATRIX[u_alone, v_alone] *
+            EDGE_MATRIX.loc[u_alone, v_alone] *
             d_term_h(relative_index_u, relative_index_v, predicted))
 
     return temp_sum
