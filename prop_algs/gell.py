@@ -104,8 +104,8 @@ def g_theta_total(index):
 
 
 def find_value(index, vector):
-    co_ords = tf.where(tf.equal(vector, index), name="find_value_fn")[0]
-    return vector[co_ords[0]]
+    co_ords = tf.where(tf.equal(vector, index), name="find_value_fn")[0][0]
+    return vector[co_ords]
 
 
 def h_theta(index, total_matrix):
@@ -126,6 +126,16 @@ def h_theta(index, total_matrix):
 
 def d_term_h(index_u, index_v, nn_output):
     return tf.to_float(tf.norm(nn_output[index_u] - nn_output[index_v]))
+
+
+def d_term_h_index(pairs, nn_output):
+    print(tf.shape(pairs))
+    norm_vector = tf.map_fn(
+        lambda a: tf.norm(nn_output[a[0]] - nn_output[a[1]]),
+        pairs[:])
+
+    norm_vector = tf.to_float(tf.convert_to_tensor(norm_vector))
+    return norm_vector
 
 
 def get_neighbors(index):
@@ -194,38 +204,64 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
     label_type_list[1] = [label_type_list[1][x]
                           for x in np.random.randint(
                               0, len(label_type_list[1]), LU_to_sample)]
+
     label_type_list[2] = [label_type_list[2][x]
                           for x in np.random.randint(
                               0, len(label_type_list[2]), UU_to_sample)]
     # iterate through each type of edge
-    with tf.name_scope('Labeled_edges') as scope:
-        for u_pair, v_pair in label_type_list[0]:
-            relative_index_u = find_value(u_pair, reference_vector)
-            relative_index_v = find_value(v_pair, reference_vector)
-            temp_sum += ALPHA_1 * tf.reduce_sum(
-                EDGE_MATRIX.loc[u_pair, v_pair] *
-                d_term_h(relative_index_u, relative_index_v, predicted) +
-                c_x(u_pair, labels[u_pair]) + c_x(v_pair, labels[v_pair]))
+    if label_type_list[0]:
+        with tf.name_scope('Labeled_edges') as scope:
+            weight_tensor = tf.expand_dims(tf.convert_to_tensor(
+                [EDGE_MATRIX.loc[u_w, v_w]
+                 for u_w, v_w in label_type_list[1]]), 1)
+            label_tensor = tf.reshape(label_type_list[1], [-1])
+            relative_indices = tf.map_fn(
+                lambda a: tf.to_float(find_value(a, reference_vector)),
+                label_tensor)
+            relative_indices = tf.reshape(relative_indices, [2, -1])
+            print(relative_indices.get_shape())
+            norm_tensor = tf.expand_dims(
+                d_term_h_index(relative_indices, predicted), axis=0)
+            weight_norm_product = tf.matmul(weight_tensor, norm_tensor)
+            c_uv_summed_term = tf.reduce_sum(
+                tf.convert_to_tensor(
+                    [c_x(u_c, labels[u_c]) + c_x(v_c, labels[v_c])
+                     for u_c, v_c in label_type_list[0]]))
+            temp_sum += ALPHA_1 * (weight_norm_product + c_uv_summed_term)
 
-    with tf.name_scope('Mixed_edges') as scope:
-        for u_mixed, v_mixed in label_type_list[1]:
-            # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_2*))
-            relative_index_u = find_value(u_mixed, reference_vector)
-            relative_index_v = find_value(v_mixed, reference_vector)
-            temp_sum += ALPHA_2 * tf.reduce_sum(
-                tf.convert_to_tensor(EDGE_MATRIX.loc[u_mixed, v_mixed],
-                                     dtype=tf.float32) *
-                d_term_h(relative_index_u, relative_index_v, predicted) +
-                c_x(u_mixed, labels[u_mixed]))
+    if label_type_list[1]:
+        with tf.name_scope('Mixed_edges') as scope:
+            weight_tensor = tf.expand_dims(tf.convert_to_tensor(
+                [EDGE_MATRIX.loc[u_w, v_w]
+                 for u_w, v_w in label_type_list[1]]), 1)
+            label_tensor = tf.reshape(label_type_list[1], [-1])
+            relative_indices = tf.map_fn(
+                lambda a: tf.to_float(find_value(a, reference_vector)),
+                label_tensor)
+            relative_indices = tf.reshape(relative_indices, [2, -1])
+            print(relative_indices.get_shape())
+            norm_tensor = tf.expand_dims(
+                d_term_h_index(relative_indices, predicted), axis=0)
+            weight_norm_product = tf.matmul(weight_tensor, norm_tensor)
+            c_uv_summed_term = tf.reduce_sum(
+                tf.convert_to_tensor([c_x(u_c, labels[u_c])
+                                      for u_c, v_c in label_type_list[0]]))
+            temp_sum += ALPHA_2 * (weight_norm_product + c_uv_summed_term)
 
-    with tf.name_scope('Unlabeled_edges') as scope:
-        for u_alone, v_alone in label_type_list[2]:
-            # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_3*))
-            relative_index_u = find_value(u_alone, reference_vector)
-            relative_index_v = find_value(v_alone, reference_vector)
-            temp_sum += ALPHA_3 * tf.reduce_sum(
-                EDGE_MATRIX.loc[u_alone, v_alone] *
-                d_term_h(relative_index_u, relative_index_v, predicted))
+    if label_type_list[2]:
+        with tf.name_scope('Unlabeled_edges') as scope:
+            weight_tensor = tf.expand_dims(tf.convert_to_tensor(
+                [EDGE_MATRIX.loc[u_w, v_w]
+                    for u_w, v_w in label_type_list[1]]), 1)
+            label_tensor = tf.reshape(label_type_list[1], [-1])
+            relative_indices = tf.map_fn(
+                lambda a: tf.to_float(find_value(a, reference_vector)),
+                label_tensor)
+            relative_indices = tf.reshape(relative_indices, [2, -1])
+            norm_tensor = tf.expand_dims(
+                d_term_h_index(relative_indices, predicted), axis=0)
+            weight_norm_product = tf.matmul(weight_tensor, norm_tensor)
+            temp_sum += ALPHA_3 * weight_norm_product
 
     return temp_sum
 
