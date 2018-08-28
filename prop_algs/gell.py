@@ -4,6 +4,7 @@
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from tensorflow.python import debug as tf_debug
 
 import os
 import readfile
@@ -20,6 +21,13 @@ EDGE_MATRIX = pd.read_pickle("../data/pandas_weight_array.pickle")
 # LABEL_LIST = pd.read_pickle("I DONT KNOW THE FILE PATH")
 LABEL_LIST = pd.DataFrame(
     np.zeros(500)-1, index=range(1, 501), columns=["LABELS"])
+LABEL_LIST.loc[4, "LABELS"] = 1
+LABEL_LIST = LABEL_LIST.astype(int)
+"""LABEL_LIST.loc[42, "LABELS"] = 4
+LABEL_LIST.loc[38, "LABELS"] = 5
+LABEL_LIST.loc[345, "LABELS"] = 6
+LABEL_LIST.loc[65, "LABELS"] = 7
+LABEL_LIST.loc[430, "LABELS"] = 8"""
 
 # THIS IS A NESTED LIST THAT DESCRIBES THE CONNECTIONS EACH NODE HAS
 # BE MINDFUL THAT THE 0TH INDEX IS ASSOCIATED WITH AN IMAGINARY "0TH"
@@ -83,11 +91,12 @@ def g_theta_total(index):
 
     average_prob_value = np.zeros((NUM_OF_LABELS, 1))
     for neighbors in NODE_CONNECTIONS[index]:
-        if LABEL_LIST.loc[neighbors] == -1:
+        if LABEL_LIST.loc[neighbors, "LABELS"] == -1:
             pass
         else:
-            average_prob_value[LABEL_LIST.loc[neighbors]] += EDGE_MATRIX[
-                index, neighbors]
+            average_prob_value[
+                LABEL_LIST.loc[neighbors-1, "LABELS"]] += EDGE_MATRIX.loc[
+                    index, neighbors]
     if sum(average_prob_value) == 0:
         return tf.convert_to_tensor(
             np.zeros((NUM_OF_LABELS, 1)) + 1/NUM_OF_LABELS)
@@ -116,7 +125,7 @@ def h_theta(index, total_matrix):
 
 
 def d_term_h(index_u, index_v, nn_output):
-    return tf.norm(nn_output[index_u] - nn_output[index_v])
+    return tf.to_float(tf.norm(nn_output[index_u] - nn_output[index_v]))
 
 
 def get_neighbors(index):
@@ -129,13 +138,14 @@ def get_neighbors(index):
         int -- Number of nodes specified node is connected to
     """
 
-    return tf.convert_to_tensor(np.count_nonzero(EDGE_MATRIX.loc[index]))
+    return tf.convert_to_tensor(np.count_nonzero(EDGE_MATRIX.loc[index]),
+                                dtype=tf.float32)
 
 
 def c_x(index, labels):
     """This function finds the cross entropy described in the loss fn
 
-    Note: we do not need to check for erroneous labels (i.e. -1) bc they 
+    Note: we do not need to check for erroneous labels (i.e. -1) bc they
     are already segmented into the three groups
     Arguments:
         index {tf tensor} -- should be a vector with the indices of relevant
@@ -153,9 +163,10 @@ def c_x(index, labels):
     # NEXT, WE NEED TO SUM OVER THE PRODUCT AND LABELS
     # USING ONE_HOT, WE CAN CREATE A ONE HOT PROB VECTOR WITH 1 AS TRUE
     # WE MULTIPLY!
-    return tf.convert_to_tensor((1/get_neighbors(index))) * tf.reduce_sum(
-                  tf.one_hot(labels, depth=NUM_OF_LABELS) *
-                  tf.log(g_theta_total(index)))
+    return tf.convert_to_tensor((1/get_neighbors(index)), dtype=tf.float32) * (
+        tf.reduce_sum(
+                  tf.one_hot(labels, depth=NUM_OF_LABELS, dtype=tf.float32) *
+                  tf.log(tf.to_float(g_theta_total(index)))))
 
 
 def custom_loss(labels, predicted, reference_vector, label_type_list):
@@ -171,33 +182,50 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
     """
 
     # RELATIVE INDEX VARS ARE THE INDICES OF THE NODE IN LABELS/PREDICTED VECS
-    temp_sum = tf.convert_to_tensor(0)
+    temp_sum = tf.convert_to_tensor(0, dtype=tf.float32)
 
+    # NEED TO ADD MINIBATCH SAMPLING FOR THE EDGE ITERATION TO REDUCE COST
+
+    # label_type_list[0] = np.random.choice(
+    #     label_type_list[0], round(len(label_type_list)/10))
+    LL_to_sample = round(len(label_type_list[0])/100)
+    LU_to_sample = round(len(label_type_list[1])/100)
+    UU_to_sample = round(len(label_type_list[2])/100)
+    label_type_list[1] = [label_type_list[1][x]
+                          for x in np.random.randint(
+                              0, len(label_type_list[1]), LU_to_sample)]
+    label_type_list[2] = [label_type_list[2][x]
+                          for x in np.random.randint(
+                              0, len(label_type_list[2]), UU_to_sample)]
     # iterate through each type of edge
-    for u_pair, v_pair in label_type_list[0]:
-        relative_index_u = find_value(u_pair, reference_vector)
-        relative_index_v = find_value(v_pair, reference_vector)
-        temp_sum += ALPHA_1 * tf.reduce_sum(
-            EDGE_MATRIX.loc[u_pair, v_pair] *
-            d_term_h(relative_index_u, relative_index_v, predicted) +
-            c_x(u_pair, labels[u_pair]) + c_x(v_pair, labels[v_pair]))
+    with tf.name_scope('Labeled_edges') as scope:
+        for u_pair, v_pair in label_type_list[0]:
+            relative_index_u = find_value(u_pair, reference_vector)
+            relative_index_v = find_value(v_pair, reference_vector)
+            temp_sum += ALPHA_1 * tf.reduce_sum(
+                EDGE_MATRIX.loc[u_pair, v_pair] *
+                d_term_h(relative_index_u, relative_index_v, predicted) +
+                c_x(u_pair, labels[u_pair]) + c_x(v_pair, labels[v_pair]))
 
-    for u_mixed, v_mixed in label_type_list[1]:
-        # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_2*))
-        relative_index_u = find_value(u_mixed, reference_vector)
-        relative_index_v = find_value(v_mixed, reference_vector)
-        temp_sum += ALPHA_2 * tf.reduce_sum(
-            EDGE_MATRIX.loc[u_mixed, v_mixed] *
-            d_term_h(relative_index_u, relative_index_v, predicted) +
-            c_x(u_mixed, labels[u_mixed]))
+    with tf.name_scope('Mixed_edges') as scope:
+        for u_mixed, v_mixed in label_type_list[1]:
+            # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_2*))
+            relative_index_u = find_value(u_mixed, reference_vector)
+            relative_index_v = find_value(v_mixed, reference_vector)
+            temp_sum += ALPHA_2 * tf.reduce_sum(
+                tf.convert_to_tensor(EDGE_MATRIX.loc[u_mixed, v_mixed],
+                                     dtype=tf.float32) *
+                d_term_h(relative_index_u, relative_index_v, predicted) +
+                c_x(u_mixed, labels[u_mixed]))
 
-    for u_alone, v_alone in label_type_list[2]:
-        # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_3*))
-        relative_index_u = find_value(u_alone, reference_vector)
-        relative_index_v = find_value(v_alone, reference_vector)
-        temp_sum += ALPHA_3 * tf.reduce_sum(
-            EDGE_MATRIX.loc[u_alone, v_alone] *
-            d_term_h(relative_index_u, relative_index_v, predicted))
+    with tf.name_scope('Unlabeled_edges') as scope:
+        for u_alone, v_alone in label_type_list[2]:
+            # temp_sum = tf.add(temp_sum, tf.reduce_sum(ALPHA_3*))
+            relative_index_u = find_value(u_alone, reference_vector)
+            relative_index_v = find_value(v_alone, reference_vector)
+            temp_sum += ALPHA_3 * tf.reduce_sum(
+                EDGE_MATRIX.loc[u_alone, v_alone] *
+                d_term_h(relative_index_u, relative_index_v, predicted))
 
     return temp_sum
 
@@ -234,20 +262,28 @@ def my_model_fn(dataset, hidden_nodes):
     # BUILDS THE FINAL LAYERS
     logits = tf.layers.dense(
         net, NUM_OF_LABELS, activation=tf.nn.softmax)
-
+    """
+    logits = tf.layers.dense(
+        net, NUM_OF_LABELS, activation=None
+    )
+    """
     # everything except labels (pred at end)
     # this makes a larger matrix with the indices, logit outputs, and inputs
     # comb_mat = tf.concat([dataset[1], dataset[0], logits], 0)
 
     # give two datasets - one has the labels, the other has the reps
     loss = custom_loss(dataset[2], logits, dataset[1], TOTAL_LLUU_LIST)
-    optimizer = tf.train.GradientDescentOperator(0.01)
+    # loss = tf.losses.mean_squared_error(
+    #   dataset[2], tf.squeeze(tf.argmax(logits, axis=1)))
+    # loss = tf.losses.softmax_cross_entropy(
+    #     tf.squeeze(tf.one_hot(dataset[2], NUM_OF_LABELS)), logits)
+    optimizer = tf.train.GradientDescentOptimizer(0.01)
     train = optimizer.minimize(loss)
 
     init = tf.global_variables_initializer()
 
-    with tf.Session() as sess:
-        writer = tf.summary.FileWriter("./tmp/log/...", sess.graph)
+    with tf_debug.LocalCLIDebugWrapperSession(tf.Session()) as sess:
+        writer = tf.summary.FileWriter("./tmp/log/", sess.graph)
         sess.run(init)
         for counter in range(100):
             _, loss_value = sess.run((train, loss))
@@ -270,12 +306,12 @@ zipped_features = {str(key): np.array(value)
                    for key, value in dict(EDGE_MATRIX).items()}
 
 slices = tf.data.Dataset.from_tensor_slices(
-    (zipped_features, np.arange(start=1, stop=501), LABEL_LIST.values))
+    (zipped_features, np.arange(start=1, stop=501), LABEL_LIST.values.astype(int)))
 
 # slices = slices.shuffle(100)
 # slices = slices.batch(len(EDGE_MATRIX.index.values)).repeat(count=None)
 
-slices = slices.batch(1).repeat(count=None)
+slices = slices.batch(len(EDGE_MATRIX)).repeat(count=None)
 
 # THIS WILL OUTPUT, ROW BY ROW, THE NODES
 next_item = slices.make_one_shot_iterator().get_next()

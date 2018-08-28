@@ -4,3 +4,5 @@
 .vscode/.ropeproject/config.py
 *.pyc
 .DS_Store
+prop_algs/tmp/log/events.out.tfevents.1535468234.WE29804
+*.WE29804
