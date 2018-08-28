@@ -135,6 +135,8 @@ def get_neighbors(index):
 def c_x(index, labels):
     """This function finds the cross entropy described in the loss fn
 
+    Note: we do not need to check for erroneous labels (i.e. -1) bc they 
+    are already segmented into the three groups
     Arguments:
         index {tf tensor} -- should be a vector with the indices of relevant
             nodes
@@ -151,8 +153,6 @@ def c_x(index, labels):
     # NEXT, WE NEED TO SUM OVER THE PRODUCT AND LABELS
     # USING ONE_HOT, WE CAN CREATE A ONE HOT PROB VECTOR WITH 1 AS TRUE
     # WE MULTIPLY!
-    if labels==-1:
-        
     return tf.convert_to_tensor((1/get_neighbors(index))) * tf.reduce_sum(
                   tf.one_hot(labels, depth=NUM_OF_LABELS) *
                   tf.log(g_theta_total(index)))
