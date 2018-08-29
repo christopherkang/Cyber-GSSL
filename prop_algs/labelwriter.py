@@ -35,7 +35,8 @@ def write_label(filename):
         index=dup_checker[:, 0], columns=["CWE"])
 
     real_df.to_pickle("../data/%s_CWE" % ("_".join(filename.split(".")[:-1])))
-    real_df_CVE.to_pickle("../data/%s_CVE" % ("_".join(filename.split(".")[:-1])))
+    real_df_CVE.to_pickle(
+        "../data/%s_CVE" % ("_".join(filename.split(".")[:-1])))
 
 
 write_label("architectural_concepts_cleaned.csv")
