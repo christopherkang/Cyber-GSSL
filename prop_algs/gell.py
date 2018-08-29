@@ -134,7 +134,8 @@ def d_term_h(index_u, index_v, nn_output):
 def d_term_h_index(pairs, nn_output):
     print("input shape %s" % pairs.get_shape())
     norm_vector = tf.map_fn(
-        lambda a: tf.norm(nn_output[tf.to_int32(a[0])] - nn_output[tf.to_int32(a[0])]),
+        lambda a: tf.norm(
+            nn_output[tf.to_int32(a[0])] - nn_output[tf.to_int32(a[0])]),
         tf.transpose(pairs))
     norm_vector = tf.to_float(tf.convert_to_tensor(norm_vector))
     # printed_norm = tf.Print(norm_vector, [norm_vector], message="THE NORM")
@@ -218,12 +219,14 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
                      for u_w, v_w in label_type_list[1]]), 1)
                 label_tensor = tf.reshape(label_type_list[1], [-1])
                 relative_indices = tf.map_fn(
-                    lambda a: tf.to_float(find_value(tf.to_int32(a), reference_vector)),
+                    lambda a: tf.to_float(
+                        find_value(tf.to_int32(a), reference_vector)),
                     tf.to_float(label_tensor))
                 relative_indices = tf.reshape(relative_indices, [2, -1])
                 norm_tensor = tf.expand_dims(
                     d_term_h_index(relative_indices, predicted), axis=0)
-                weight_norm_product = tf.reshape(tf.matmul(norm_tensor, weight_tensor), [])
+                weight_norm_product = tf.reshape(
+                    tf.matmul(norm_tensor, weight_tensor), [])
                 c_uv_summed_term = tf.reduce_sum(
                     tf.convert_to_tensor(
                         [c_x(u_c, labels[u_c]) + c_x(v_c, labels[v_c])
@@ -240,15 +243,16 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
                 weight_tensor = tf.expand_dims(tf.convert_to_tensor(
                     [EDGE_MATRIX.loc[u_w, v_w]
                      for u_w, v_w in label_type_list[1]]), 1)
-                print("The wt t has a shape of %s" % weight_tensor.get_shape())
                 label_tensor = tf.reshape(label_type_list[1], [-1])
                 relative_indices = tf.map_fn(
-                    lambda a: tf.to_float(find_value(tf.to_int32(a), reference_vector)),
+                    lambda a: tf.to_float(
+                        find_value(tf.to_int32(a), reference_vector)),
                     tf.to_float(label_tensor))
                 relative_indices = tf.reshape(relative_indices, [2, -1])
                 norm_tensor = tf.expand_dims(
                     d_term_h_index(relative_indices, predicted), axis=0)
-                weight_norm_product = tf.reshape(tf.matmul(norm_tensor, weight_tensor), [])
+                weight_norm_product = tf.reshape(
+                    tf.matmul(norm_tensor, weight_tensor), [])
                 c_uv_summed_term = tf.reduce_sum(
                     tf.convert_to_tensor([c_x(u_c, labels[u_c])
                                           for u_c, v_c in label_type_list[0]]))
@@ -265,12 +269,14 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
                         for u_w, v_w in label_type_list[1]]), 1)
                 label_tensor = tf.reshape(label_type_list[1], [-1])
                 relative_indices = tf.map_fn(
-                    lambda a: tf.to_float(find_value(tf.to_int32(a), reference_vector)),
+                    lambda a: tf.to_float(
+                        find_value(tf.to_int32(a), reference_vector)),
                     tf.to_float(label_tensor))
                 relative_indices = tf.reshape(relative_indices, [2, -1])
                 norm_tensor = tf.expand_dims(
                     d_term_h_index(relative_indices, predicted), axis=0)
-                weight_norm_product = tf.reshape(tf.matmul(norm_tensor, weight_tensor), [])
+                weight_norm_product = tf.reshape(
+                    tf.matmul(norm_tensor, weight_tensor), [])
                 temp_sum_UU = ALPHA_3 * weight_norm_product
                 print(temp_sum_UU.get_shape())
                 tf.summary.scalar("Unlabeled_subloss", (temp_sum_UU))
@@ -297,7 +303,7 @@ def make_dict_feature_col(dict_of_features):
             for col in dict_of_features]
 
 
-def my_model_fn(dataset, hidden_nodes):
+def my_model_fn(dataset, hidden_nodes, log_dir):
     """NN Model function
 
     Arguments:
@@ -324,7 +330,7 @@ def my_model_fn(dataset, hidden_nodes):
     init = tf.global_variables_initializer()
 
     with tf_debug.LocalCLIDebugWrapperSession(tf.Session()) as sess:
-        writer = tf.summary.FileWriter("./tmp/log/", sess.graph)
+        writer = tf.summary.FileWriter("./tmp/log/"+log_dir+"/", sess.graph)
         all_summaries = tf.summary.merge_all()
         sess.run(init)
         for counter in range(100):
