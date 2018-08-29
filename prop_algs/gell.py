@@ -178,13 +178,20 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
         LU_to_sample = round(len(label_type_list[1]) * SAMPLE_CONST)
         UU_to_sample = round(len(label_type_list[2]) * SAMPLE_CONST)
 
-        label_type_list[1] = [label_type_list[1][x]
-                              for x in np.random.randint(
-                                0, len(label_type_list[1]), LU_to_sample)]
+        if LL_to_sample > 0:
+            label_type_list[0] = [label_type_list[0][x]
+                                  for x in np.random.randint(
+                                    0, len(label_type_list[0]), LL_to_sample)]
 
-        label_type_list[2] = [label_type_list[2][x]
-                              for x in np.random.randint(
-                                0, len(label_type_list[2]), UU_to_sample)]
+        if LU_to_sample > 0:
+            label_type_list[1] = [label_type_list[1][x]
+                                  for x in np.random.randint(
+                                    0, len(label_type_list[1]), LU_to_sample)]
+
+        if UU_to_sample > 0:
+            label_type_list[2] = [label_type_list[2][x]
+                                  for x in np.random.randint(
+                                    0, len(label_type_list[2]), UU_to_sample)]
 
         # iterate through each type of edge
         with tf.variable_scope('Labeled_edges', reuse=True) as scope:
@@ -322,12 +329,11 @@ def my_model_fn(dataset, hidden_nodes, log_dir):
 # THE EDGE WEIGHTS, AND THE LABELS
 
 # ------- ! BEGIN DATA IMPORT PIPELINE ! ------- #
-# slices = tf.data.Dataset.from_tensor_slices(EDGE_MATRIX)
 
-# THE USE OF TUPLES IS PREFERABLE, AS IN THE END EVERYTHING IS A DICT
 
 zipped_features = {str(key): np.array(value)
                    for key, value in dict(EDGE_MATRIX).items()}
+
 
 slices = tf.data.Dataset.from_tensor_slices(
     (zipped_features,
