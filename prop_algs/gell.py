@@ -86,26 +86,6 @@ def find_value(index, vector):
     return vector[co_ords]
 
 
-def h_theta(index, total_matrix):
-    """Returns the H_theta value associated with the loss function
-    Essentially the output of the neural network
-
-    Arguments:
-        index {int} -- the node's index
-        total_matrix {tf tensor} -- tensor with all of the predictions
-
-    Returns:
-        tf tensor -- tensor output of the neural network for a specific index
-    """
-
-    return tf.convert_to_tensor(
-        total_matrix[total_matrix, index, 1:(NUM_OF_LABELS+1)])
-
-
-def d_term_h(index_u, index_v, nn_output):
-    return tf.to_float(tf.norm(nn_output[index_u] - nn_output[index_v]))
-
-
 def d_term_h_index(pairs, nn_output):
     print("input shape %s" % pairs.get_shape())
     norm_vector = tf.map_fn(
@@ -270,14 +250,6 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
             tf.get_variable("Mixed_edges/temp_sum_LU", shape=[]) +
             tf.get_variable("Unlabeled_edges/temp_sum_UU", shape=[]))
         return total_loss
-
-
-def make_feature_col(features, inp_range):
-    temp_feature_cols = []
-    for col in range(inp_range[0], inp_range[1]):
-        temp_feature_cols.append(tf.feature_column.numeric_column(
-            str(features.columns.values[col])))
-    return temp_feature_cols
 
 
 def make_dict_feature_col(dict_of_features):
