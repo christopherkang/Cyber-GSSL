@@ -57,31 +57,6 @@ ALPHA_2 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_2")
 ALPHA_3 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_3")
 
 
-def g_theta(index):
-    gtemp = None
-    # for each node the node is connected to
-    temp_label_hold = []
-    sum_weights = {}
-    for neighbors in NODE_CONNECTIONS[index]:
-        if LABEL_LIST.loc[neighbors] == -1:  # only count "real" labels
-            pass
-        else:
-            label_val = EDGE_MATRIX[index][neighbors]
-            try:
-                sum_weights[LABEL_LIST.loc[neighbors]] += label_val
-            except:
-                sum_weights[LABEL_LIST.loc[neighbors]] = label_val
-    try:
-        max_value = max(sum_weights.values())
-        max_value = list({key for key, value in sum_weights.items()
-                          if value == max_value})
-    except:
-        return -1
-    print("these are in top_labels ", max_value)
-    # a set of the most popular labels
-    return tf.convert_to_tensor(random.choice(max_value))
-
-
 def g_theta_total(index):
     """Produces a NUM_OF_LABELS by 1 vector describing the probs of each label
 
