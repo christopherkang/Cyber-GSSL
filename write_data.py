@@ -56,8 +56,11 @@ for origin_node in IMPORT_ARRAY:
 LABEL_LIST = np.zeros((NUM_OF_NODES+1, 1))-1
 LABEL_LIST[4] = 1
 
+# THE INDEX SHOULD BE NUMBERS FROM 1-500, VALUES ARE THE NODE CVE NAMES
+LOOKUP_TABLE = pd.DataFrame(np.zeros([500, 1]), index=range(1, 501))
 
-# LIST OF - CONSTANTS FOR INTERNAL USE
+
+# FUNCTION TO BE REMOVED - - - OLD
 def edge_type(node_1, node_2):
     if LABEL_LIST[node_1] != -1 and LABEL_LIST[node_2] != -1:
         # this is the LL case
@@ -68,6 +71,26 @@ def edge_type(node_1, node_2):
     else:
         # this is the LU case
         return 1
+
+
+def edge_type_finder(node_1, node_2, input_label_list):
+    node_1_type = False
+    node_2_type = False
+    real_node_1_name = LOOKUP_TABLE[node_1]
+    real_node_2_name = LOOKUP_TABLE[node_2]
+    if node_1 in input_label_list.index:
+        node_1_type = True
+    if node_2 in input_label_list.index:
+        node_2_type = True
+    if node_1_type and node_2_type:
+        # LL case
+        return 0
+    elif node_1_type != node_2_type:
+        # LU case
+        return 1
+    else:
+        # UU case
+        return 2
 
 
 def check_for_labeled_neighbors(node_index):
@@ -99,10 +122,15 @@ PANDAS_NODE_LABELS = pd.DataFrame(
     columns=["type"])
 
 
-TOTAL_LLUU_LIST = [[], [], []]
-for row in IMPORT_ARRAY:
-    TOTAL_LLUU_LIST[edge_type(int(row[0]), int(row[1]))].append(
-        [int(row[0]), int(row[1])])
+def create_edge_list(filename):
+    TOTAL_LLUU_LIST = [[], [], []]
+    imported_label_list = pd.from_pickle(filename)
+    for row in IMPORT_ARRAY:
+        TOTAL_LLUU_LIST[
+            edge_type_finder(int(row[0]), int(row[1]),
+                             imported_label_list)].append(
+                                 [int(row[0]), int(row[1])])
+    return TOTAL_LLUU_LIST
 
 
 def write_to_disk(filename, list_to_write):
@@ -124,6 +152,12 @@ write_to_disk('./data/index_markers.txt', INDEX_MARKERS)
 write_to_disk('./data/node_connections.txt', NODE_CONNECTIONS)
 write_to_disk('./data/node_connect_dest.txt', NODE_CONNECT_DEST)
 write_to_disk('./data/node_connect_orig.txt', NODE_CONNECT_ORIG)
-write_to_disk('./data/total_edge_type.txt', TOTAL_LLUU_LIST)
 np.savetxt("./data/edge_weights.txt", TOTAL_WEIGHT_ARR)
 PANDAS_WEIGHT_ARR.to_pickle("./data/pandas_weight_array.pickle")
+
+write_to_disk('./data/TET_arch.txt',
+              create_edge_list("./data/architectural_concepts_cleaned_CWE"))
+write_to_disk('./data/TET_dev.txt',
+              create_edge_list("./data/development_concepts_cleaned_CWE"))
+write_to_disk('./data/TET_res.txt',
+              create_edge_list("./data/research_concepts_cleaned_CWE"))
