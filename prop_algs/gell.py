@@ -18,7 +18,15 @@ EDGE_MATRIX = pd.read_pickle("../data/pandas_weight_array.pickle")
 
 # LABEL_LIST format: columns are labels and LL/LU/UU status
 # rows are individual notes
-# LABEL_LIST = pd.read_pickle("I DONT KNOW THE FILE PATH")
+# imported_labels = pd.read_pickle("I DONT KNOW THE FILE PATH")
+# imported labels are the CVE valued ones (real_df)
+# list_of_CWEs = set(real_df.index)
+# refined_list = pd.DataFrame(
+#   np.arange(0, len(list_of_CWEs)),
+#   index=sorted(list(list_of_CWEs)), columns=["NEW_ID"])
+# CWE_to_index = refined_list.to_dict()["NEW_ID"]
+# LABEL_LIST = pd.read_pickle(USE DATASET WITH CWE VALUES)
+# LABEL_LIST.replace(CWE_to_index)
 LABEL_LIST = pd.DataFrame(
     np.zeros(500)-1, index=range(1, 501), columns=["LABELS"])
 LABEL_LIST.loc[4, "LABELS"] = 1
@@ -142,7 +150,6 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
     """
 
     with tf.variable_scope('Loss') as loss_scope:
-        temp_sum = tf.convert_to_tensor(0, dtype=tf.float32)
 
         LL_to_sample = round(len(label_type_list[0]) * SAMPLE_CONST)
         LU_to_sample = round(len(label_type_list[1]) * SAMPLE_CONST)
