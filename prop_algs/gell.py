@@ -330,7 +330,9 @@ def my_model_fn(dataset, hidden_nodes, log_dir):
     init = tf.global_variables_initializer()
 
     with tf_debug.LocalCLIDebugWrapperSession(tf.Session()) as sess:
-        writer = tf.summary.FileWriter("./tmp/log/"+log_dir+"/", sess.graph)
+        writer = tf.summary.FileWriter("./tmp/log/"+log_dir, sess.graph)
+        for var in tf.trainable_variables():
+            tf.summary.histogram(var.name, var)
         all_summaries = tf.summary.merge_all()
         sess.run(init)
         for counter in range(100):
@@ -367,4 +369,4 @@ next_item = slices.make_one_shot_iterator().get_next()
 
 # ------- ! END DATA IMPORT PIPELINE ! ------- #
 
-my_model_fn(next_item, [500, 500, 20])
+my_model_fn(next_item, [500, 500, 20], "draft2")
