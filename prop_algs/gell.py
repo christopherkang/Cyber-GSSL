@@ -107,7 +107,7 @@ def g_theta_total(index):
 
 
 def find_value(index, vector):
-    co_ords = tf.where(tf.equal(vector, index), name="find_value_fn")[0][0]
+    co_ords = tf.where(tf.equal(index, vector), name="find_value_fn")[0][0]
     return vector[co_ords]
 
 
@@ -132,12 +132,13 @@ def d_term_h(index_u, index_v, nn_output):
 
 
 def d_term_h_index(pairs, nn_output):
-    print(tf.shape(pairs))
+    print("input shape %s" % pairs.get_shape())
     norm_vector = tf.map_fn(
-        lambda a: tf.norm(nn_output[a[0]] - nn_output[a[1]]),
-        pairs[:])
-
+        lambda a: tf.norm(nn_output[tf.to_int32(a[0])] - nn_output[tf.to_int32(a[0])]),
+        tf.transpose(pairs))
     norm_vector = tf.to_float(tf.convert_to_tensor(norm_vector))
+    # printed_norm = tf.Print(norm_vector, [norm_vector], message="THE NORM")
+    print("Norm vector shape %s" % norm_vector.get_shape())
     return norm_vector
 
 
@@ -210,19 +211,19 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
                                 0, len(label_type_list[2]), UU_to_sample)]
 
         # iterate through each type of edge
-        if label_type_list[0]:
-            with tf.variable_scope('Labeled_edges', reuse=True) as scope:
+        with tf.variable_scope('Labeled_edges', reuse=True) as scope:
+            if label_type_list[0]:
                 weight_tensor = tf.expand_dims(tf.convert_to_tensor(
                     [EDGE_MATRIX.loc[u_w, v_w]
                      for u_w, v_w in label_type_list[1]]), 1)
                 label_tensor = tf.reshape(label_type_list[1], [-1])
                 relative_indices = tf.map_fn(
-                    lambda a: tf.to_float(find_value(a, reference_vector)),
-                    label_tensor)
+                    lambda a: tf.to_float(find_value(tf.to_int32(a), reference_vector)),
+                    tf.to_float(label_tensor))
                 relative_indices = tf.reshape(relative_indices, [2, -1])
                 norm_tensor = tf.expand_dims(
                     d_term_h_index(relative_indices, predicted), axis=0)
-                weight_norm_product = tf.matmul(weight_tensor, norm_tensor)
+                weight_norm_product = tf.reshape(tf.matmul(norm_tensor, weight_tensor), [])
                 c_uv_summed_term = tf.reduce_sum(
                     tf.convert_to_tensor(
                         [c_x(u_c, labels[u_c]) + c_x(v_c, labels[v_c])
@@ -230,45 +231,56 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
 
                 temp_sum_LL = ALPHA_1 * (
                     weight_norm_product + c_uv_summed_term)
-                temp_sum += ALPHA_1 * (weight_norm_product + c_uv_summed_term)
+                tf.summary.scalar("Labeled_subloss", temp_sum_LL)
+            else:
+                temp_sum_LL = 0
 
-        if label_type_list[1]:
-            with tf.variable_scope('Mixed_edges', reuse=True) as scope:
+        with tf.variable_scope('Mixed_edges', reuse=True) as scope:
+            if label_type_list[1]:
                 weight_tensor = tf.expand_dims(tf.convert_to_tensor(
                     [EDGE_MATRIX.loc[u_w, v_w]
                      for u_w, v_w in label_type_list[1]]), 1)
+                print("The wt t has a shape of %s" % weight_tensor.get_shape())
                 label_tensor = tf.reshape(label_type_list[1], [-1])
                 relative_indices = tf.map_fn(
-                    lambda a: tf.to_float(find_value(a, reference_vector)),
-                    label_tensor)
+                    lambda a: tf.to_float(find_value(tf.to_int32(a), reference_vector)),
+                    tf.to_float(label_tensor))
                 relative_indices = tf.reshape(relative_indices, [2, -1])
                 norm_tensor = tf.expand_dims(
                     d_term_h_index(relative_indices, predicted), axis=0)
-                weight_norm_product = tf.matmul(weight_tensor, norm_tensor)
+                weight_norm_product = tf.reshape(tf.matmul(norm_tensor, weight_tensor), [])
                 c_uv_summed_term = tf.reduce_sum(
                     tf.convert_to_tensor([c_x(u_c, labels[u_c])
                                           for u_c, v_c in label_type_list[0]]))
                 temp_sum_LU = ALPHA_2 * (
                     weight_norm_product + c_uv_summed_term)
+                tf.summary.scalar("Mixed_subloss", temp_sum_LU)
+            else:
+                temp_sum_LU = 0
 
-        if label_type_list[2]:
-            with tf.variable_scope('Unlabeled_edges', reuse=True) as scope:
+        with tf.variable_scope('Unlabeled_edges', reuse=True) as scope:
+            if label_type_list[2]:
                 weight_tensor = tf.expand_dims(tf.convert_to_tensor(
                     [EDGE_MATRIX.loc[u_w, v_w]
                         for u_w, v_w in label_type_list[1]]), 1)
                 label_tensor = tf.reshape(label_type_list[1], [-1])
                 relative_indices = tf.map_fn(
-                    lambda a: tf.to_float(find_value(a, reference_vector)),
-                    label_tensor)
+                    lambda a: tf.to_float(find_value(tf.to_int32(a), reference_vector)),
+                    tf.to_float(label_tensor))
                 relative_indices = tf.reshape(relative_indices, [2, -1])
                 norm_tensor = tf.expand_dims(
                     d_term_h_index(relative_indices, predicted), axis=0)
-                weight_norm_product = tf.matmul(weight_tensor, norm_tensor)
+                weight_norm_product = tf.reshape(tf.matmul(norm_tensor, weight_tensor), [])
                 temp_sum_UU = ALPHA_3 * weight_norm_product
+                print(temp_sum_UU.get_shape())
+                tf.summary.scalar("Unlabeled_subloss", (temp_sum_UU))
+            else:
+                temp_sum_UU = 0
 
-        total_loss = (tf.get_variable("Labeled_edges/temp_sum_LL", shape=[]) +
-                      tf.get_variable("Mixed_edges/temp_sum_LU", shape=[]) +
-                      tf.get_variable("Unlabeled_edges/temp_sum_UU", shape=[]))
+        total_loss = tf.reduce_sum(
+            tf.get_variable("Labeled_edges/temp_sum_LL", shape=[]) +
+            tf.get_variable("Mixed_edges/temp_sum_LU", shape=[]) +
+            tf.get_variable("Unlabeled_edges/temp_sum_UU", shape=[]))
         return total_loss
 
 
@@ -313,9 +325,13 @@ def my_model_fn(dataset, hidden_nodes):
 
     with tf_debug.LocalCLIDebugWrapperSession(tf.Session()) as sess:
         writer = tf.summary.FileWriter("./tmp/log/", sess.graph)
+        all_summaries = tf.summary.merge_all()
         sess.run(init)
         for counter in range(100):
             _, loss_value = sess.run((train, loss))
+            if counter % 5 == 0:
+                summary = sess.run(all_summaries)
+                writer.add_summary(summary, counter)
             print(loss_value)
         writer.close()
 
