@@ -294,9 +294,6 @@ def my_model_fn(dataset, hidden_nodes, log_dir):
             print(loss_value)
         writer.close()
 
-# THE DATASET IS COMPRISED OF INDEX VALUES TO IDENTIFY THE NODES,
-# THE EDGE WEIGHTS, AND THE LABELS
-
 # ------- ! BEGIN DATA IMPORT PIPELINE ! ------- #
 
 
