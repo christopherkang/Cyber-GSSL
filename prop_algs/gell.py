@@ -303,6 +303,8 @@ def my_model_fn(dataset, hidden_nodes, log_dir):
 zipped_features = {str(key): np.array(value)
                    for key, value in dict(EDGE_MATRIX).items()}
 
+# THE DATASET'S FORMAT IS (FEATURE_ARRAY, SCALAR_INDEX, SCALAR_LABELS)
+# THIS MEANS THAT ACCESSING THE DATASET'S FEATURES IS DATASET[0]
 
 slices = tf.data.Dataset.from_tensor_slices(
     (zipped_features,
