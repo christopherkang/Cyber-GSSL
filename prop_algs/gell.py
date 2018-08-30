@@ -5,12 +5,14 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow.python import debug as tf_debug
+from sklearn.model_selection import KFold
 
 import os
 import readfile
 
 # THIS IS NECESSARY FOR WINDOWS SYSTEMS
 os.chdir(os.path.dirname(__file__))
+np.random.seed(0)
 
 # EDGE_MATRIX format: columns are connections, rows are individual nodes
 # values are weights
@@ -54,6 +56,10 @@ ALPHA_1 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_1")
 ALPHA_2 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_2")
 ALPHA_3 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_3")
 
+# ENABLE CROSS VALIDATION
+CROSS_VAL = True
+NUM_OF_SPLITS = 3
+
 
 def g_theta_total(index):
     """Produces a NUM_OF_LABELS by 1 vector describing the probs of each label
@@ -80,15 +86,16 @@ def g_theta_total(index):
 
 
 def find_value(index, vector):
-    co_ords = tf.where(tf.equal(index, vector), name="find_value_fn")[0][0]
-    return vector[co_ords]
+    co_ords = tf.where(tf.equal(index, vector), name="find_value_fn")[0, 0]
+    # return vector[co_ords]
+    return co_ords
 
 
 def d_term_h_index(pairs, nn_output):
     print("input shape %s" % pairs.get_shape())
     norm_vector = tf.map_fn(
         lambda a: tf.norm(
-            nn_output[tf.to_int32(a[0])] - nn_output[tf.to_int32(a[0])]),
+            nn_output[tf.to_int32(a[0])] - nn_output[tf.to_int32(a[1])]),
         tf.transpose(pairs))
     norm_vector = tf.to_float(tf.convert_to_tensor(norm_vector))
     # printed_norm = tf.Print(norm_vector, [norm_vector], message="THE NORM")
@@ -131,10 +138,28 @@ def c_x(index, labels):
     # NEXT, WE NEED TO SUM OVER THE PRODUCT AND LABELS
     # USING ONE_HOT, WE CAN CREATE A ONE HOT PROB VECTOR WITH 1 AS TRUE
     # WE MULTIPLY!
-    return tf.convert_to_tensor((1/get_neighbors(index)), dtype=tf.float32) * (
+    return -tf.convert_to_tensor((1/get_neighbors(index)), dtype=tf.float32) * (
         tf.reduce_sum(
                   tf.one_hot(labels, depth=NUM_OF_LABELS, dtype=tf.float32) *
                   tf.log(tf.to_float(g_theta_total(index)))))
+
+
+def main_subloss(label_types_to_iterate, ref_vec, given_logits):
+    weight_tensor = tf.expand_dims(tf.convert_to_tensor(
+                    [EDGE_MATRIX.loc[u_w, v_w]
+                     for u_w, v_w in label_types_to_iterate]), 1)
+    label_tensor = tf.reshape(label_types_to_iterate, [-1])
+    relative_indices = tf.map_fn(
+        lambda a: tf.to_float(
+            find_value(tf.to_int32(a), tf.to_int32(ref_vec))),
+        tf.to_float(label_tensor))
+    relative_indices = tf.reshape(relative_indices, [2, -1])
+    norm_tensor = tf.expand_dims(
+        d_term_h_index(relative_indices, given_logits), axis=0)
+    norm_tensor = tf.square(norm_tensor)
+    weight_norm_product = tf.reshape(
+        tf.matmul(norm_tensor, weight_tensor), [])
+    return weight_norm_product
 
 
 def custom_loss(labels, predicted, reference_vector, label_type_list):
@@ -173,22 +198,12 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
         # iterate through each type of edge
         with tf.variable_scope('Labeled_edges', reuse=True) as scope:
             if label_type_list[0]:
-                weight_tensor = tf.expand_dims(tf.convert_to_tensor(
-                    [EDGE_MATRIX.loc[u_w, v_w]
-                     for u_w, v_w in label_type_list[1]]), 1)
-                label_tensor = tf.reshape(label_type_list[1], [-1])
-                relative_indices = tf.map_fn(
-                    lambda a: tf.to_float(
-                        find_value(tf.to_int32(a), reference_vector)),
-                    tf.to_float(label_tensor))
-                relative_indices = tf.reshape(relative_indices, [2, -1])
-                norm_tensor = tf.expand_dims(
-                    d_term_h_index(relative_indices, predicted), axis=0)
-                weight_norm_product = tf.reshape(
-                    tf.matmul(norm_tensor, weight_tensor), [])
+                weight_norm_product = main_subloss(
+                    label_type_list[0], reference_vector, predicted)
                 c_uv_summed_term = tf.reduce_sum(
                     tf.convert_to_tensor(
-                        [c_x(u_c, labels[u_c]) + c_x(v_c, labels[v_c])
+                        [c_x(u_c, labels[find_value(u_c, reference_vector)]) +
+                         c_x(v_c, labels[find_value(v_c, reference_vector)])
                          for u_c, v_c in label_type_list[0]]))
 
                 temp_sum_LL = ALPHA_1 * (
@@ -199,22 +214,12 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
 
         with tf.variable_scope('Mixed_edges', reuse=True) as scope:
             if label_type_list[1]:
-                weight_tensor = tf.expand_dims(tf.convert_to_tensor(
-                    [EDGE_MATRIX.loc[u_w, v_w]
-                     for u_w, v_w in label_type_list[1]]), 1)
-                label_tensor = tf.reshape(label_type_list[1], [-1])
-                relative_indices = tf.map_fn(
-                    lambda a: tf.to_float(
-                        find_value(tf.to_int32(a), reference_vector)),
-                    tf.to_float(label_tensor))
-                relative_indices = tf.reshape(relative_indices, [2, -1])
-                norm_tensor = tf.expand_dims(
-                    d_term_h_index(relative_indices, predicted), axis=0)
-                weight_norm_product = tf.reshape(
-                    tf.matmul(norm_tensor, weight_tensor), [])
+                weight_norm_product = main_subloss(
+                    label_type_list[1], reference_vector, predicted)
                 c_uv_summed_term = tf.reduce_sum(
-                    tf.convert_to_tensor([c_x(u_c, labels[u_c])
-                                          for u_c, v_c in label_type_list[0]]))
+                    tf.convert_to_tensor(
+                        [c_x(u_c, labels[find_value(u_c, reference_vector)])
+                         for u_c, u_v in label_type_list[1]]))
                 temp_sum_LU = ALPHA_2 * (
                     weight_norm_product + c_uv_summed_term)
                 tf.summary.scalar("Mixed_subloss", temp_sum_LU)
@@ -223,22 +228,11 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
 
         with tf.variable_scope('Unlabeled_edges', reuse=True) as scope:
             if label_type_list[2]:
-                weight_tensor = tf.expand_dims(tf.convert_to_tensor(
-                    [EDGE_MATRIX.loc[u_w, v_w]
-                        for u_w, v_w in label_type_list[1]]), 1)
-                label_tensor = tf.reshape(label_type_list[1], [-1])
-                relative_indices = tf.map_fn(
-                    lambda a: tf.to_float(
-                        find_value(tf.to_int32(a), reference_vector)),
-                    tf.to_float(label_tensor))
-                relative_indices = tf.reshape(relative_indices, [2, -1])
-                norm_tensor = tf.expand_dims(
-                    d_term_h_index(relative_indices, predicted), axis=0)
-                weight_norm_product = tf.reshape(
-                    tf.matmul(norm_tensor, weight_tensor), [])
+                weight_norm_product = main_subloss(
+                    label_type_list[2], reference_vector, predicted)
                 temp_sum_UU = ALPHA_3 * weight_norm_product
                 print(temp_sum_UU.get_shape())
-                tf.summary.scalar("Unlabeled_subloss", (temp_sum_UU))
+                # tf.summary.scalar("Unlabeled_subloss", (temp_sum_UU))
             else:
                 temp_sum_UU = 0
 
@@ -254,13 +248,23 @@ def make_dict_feature_col(dict_of_features):
             for col in dict_of_features]
 
 
-def my_model_fn(dataset, hidden_nodes, log_dir):
+def my_model_fn(train_dataset, test_dataset,
+                hidden_nodes, log_dir, predict_values=False, 
+                LLUU_LIST=TOTAL_LLUU_LIST):
     """NN Model function
 
     Arguments:
         dataset {pd DF} -- dataset with indices
         hidden_nodes {list} -- list of hidden_nodes
     """
+
+    iterator_shell = tf.data.Iterator.from_structure(
+        train_dataset.output_types, train_dataset.output_shapes)
+
+    dataset = iterator_shell.get_next()
+
+    train_init_op = iterator_shell.make_initializer(train_dataset)
+    test_init_op = iterator_shell.make_initializer(test_dataset)
 
     # THIS CREATES THE INPUT LAYER AND IMPORTS DATA
     net = tf.feature_column.input_layer(
@@ -274,48 +278,103 @@ def my_model_fn(dataset, hidden_nodes, log_dir):
     logits = tf.layers.dense(
         net, NUM_OF_LABELS, activation=tf.nn.softmax)
 
-    loss = custom_loss(dataset[2], logits, dataset[1], TOTAL_LLUU_LIST)
+    loss = custom_loss(dataset[2], logits, dataset[1], LLUU_LIST)
+    print(dataset[1])
     optimizer = tf.train.GradientDescentOptimizer(0.01)
     train = optimizer.minimize(loss)
 
     init = tf.global_variables_initializer()
 
     with tf_debug.LocalCLIDebugWrapperSession(tf.Session()) as sess:
-        writer = tf.summary.FileWriter("./tmp/log/"+log_dir, sess.graph)
+        writer = tf.summary.FileWriter("./tmp/log/%s" % log_dir, sess.graph)
         for var in tf.trainable_variables():
             tf.summary.histogram(var.name, var)
         all_summaries = tf.summary.merge_all()
         sess.run(init)
+        sess.run(train_init_op)
         for counter in range(100):
             _, loss_value = sess.run((train, loss))
             if counter % 5 == 0:
                 summary = sess.run(all_summaries)
                 writer.add_summary(summary, counter)
             print(loss_value)
+        """
+        sess.run(test_init_op)
+        loss_value, predictions = sess.run((loss, logits))
+        print("These are the model's predictions")
+        print(predictions)
+        print("This is the loss")
+        print(loss_value)
         writer.close()
+        return loss_value, predictions
+        """
 
 # ------- ! BEGIN DATA IMPORT PIPELINE ! ------- #
 
 
-zipped_features = {str(key): np.array(value)
-                   for key, value in dict(EDGE_MATRIX).items()}
+def prepare_data(feature_set, label_list, shuffle=False):
+    zipped_features = {str(key): np.array(value)
+                       for key, value in dict(feature_set).items()}
+    slices = tf.data.Dataset.from_tensor_slices(
+        (zipped_features,
+         feature_set.index.values,
+         label_list.values.astype(int)))
+    if shuffle:
+        slices = slices.shuffle(100)
+    slices = slices.batch(len(feature_set)).repeat(count=None)
+    # THIS WILL OUTPUT, ROW BY ROW, THE NODES
+    return slices
 
-# THE DATASET'S FORMAT IS (FEATURE_ARRAY, SCALAR_INDEX, SCALAR_LABELS)
-# THIS MEANS THAT ACCESSING THE DATASET'S FEATURES IS DATASET[0]
 
-slices = tf.data.Dataset.from_tensor_slices(
-    (zipped_features,
-     np.arange(start=1, stop=501),
-     LABEL_LIST.values.astype(int)))
+def check_neighbors(node_index_1, node_index_2):
+    if (LABEL_LIST.loc[node_index_1][0] != -1 and
+       LABEL_LIST.loc[node_index_2][0] != -1):
+        return 0
+    elif (LABEL_LIST.loc[node_index_1][0] == -1 and
+          LABEL_LIST.loc[node_index_2][0] == -1):
+        return 2
+    else:
+        return 1
 
-# slices = slices.shuffle(100)
-# slices = slices.batch(len(EDGE_MATRIX.index.values)).repeat(count=None)
 
-slices = slices.batch(len(EDGE_MATRIX)).repeat(count=None)
+if CROSS_VAL:
+    with tf.name_scope("Input_pipeline") as scope:
+        loss_table = []
+        prediction_table = []
+        kf = KFold(n_splits=NUM_OF_SPLITS, shuffle=True)
+        kf.get_n_splits(NUM_OF_SPLITS)
+        for train, test in kf.split(EDGE_MATRIX):
+            # print(train, test)
+            train_feat = EDGE_MATRIX.iloc[train]
+            train_label = LABEL_LIST.iloc[train]
+            test_feat = EDGE_MATRIX.iloc[test]
+            test_label = LABEL_LIST.iloc[test]
 
-# THIS WILL OUTPUT, ROW BY ROW, THE NODES
-next_item = slices.make_one_shot_iterator().get_next()
+            train_dataset = prepare_data(train_feat, train_label)
+            test_dataset = prepare_data(test_feat, test_label)
 
-# ------- ! END DATA IMPORT PIPELINE ! ------- #
+            edge_list = EDGE_MATRIX[
+                EDGE_MATRIX.index.isin(train_feat.index.values)]
+            edge_list = edge_list[
+                edge_list.index.intersection(train_feat.index.values)]
 
-my_model_fn(next_item, [500, 500, 20], "draft2")
+            print(edge_list.shape)
+
+            train_LLUU = [[], [], []]
+            for node_1 in edge_list.index.values:
+                selected_row = edge_list.loc[node_1]
+                for node_2 in selected_row.nonzero()[0]:
+                    if node_2 > node_1:
+                        train_LLUU[check_neighbors(node_1,
+                                   edge_list.columns.values[node_2])].append(
+                                       [node_1,
+                                       edge_list.columns.values[node_2]])
+
+            losses, preds = my_model_fn(
+                train_dataset, test_dataset, [500, 500, 20],
+                "draft3", LLUU_LIST=train_LLUU)
+            loss_table.append(losses)
+            prediction_table.append(preds)
+else:
+    input_data = prepare_data(EDGE_MATRIX, LABEL_LIST)
+    my_model_fn(input_data, input_data, [500, 500, 20], "draft2")

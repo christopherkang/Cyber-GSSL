@@ -78,9 +78,9 @@ def edge_type_finder(node_1, node_2, input_label_list):
     node_2_type = False
     real_node_1_name = LOOKUP_TABLE[node_1]
     real_node_2_name = LOOKUP_TABLE[node_2]
-    if node_1 in input_label_list.index:
+    if real_node_1_name in input_label_list.index:
         node_1_type = True
-    if node_2 in input_label_list.index:
+    if real_node_2_name in input_label_list.index:
         node_2_type = True
     if node_1_type and node_2_type:
         # LL case
