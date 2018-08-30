@@ -138,8 +138,8 @@ def c_x(index, labels):
     # NEXT, WE NEED TO SUM OVER THE PRODUCT AND LABELS
     # USING ONE_HOT, WE CAN CREATE A ONE HOT PROB VECTOR WITH 1 AS TRUE
     # WE MULTIPLY!
-    return -tf.convert_to_tensor((1/get_neighbors(index)), dtype=tf.float32) * (
-        tf.reduce_sum(
+    return -tf.convert_to_tensor(
+        (1/get_neighbors(index)), dtype=tf.float32) * (tf.reduce_sum(
                   tf.one_hot(labels, depth=NUM_OF_LABELS, dtype=tf.float32) *
                   tf.log(tf.to_float(g_theta_total(index)))))
 
@@ -298,7 +298,7 @@ def my_model_fn(train_dataset, test_dataset,
                 summary = sess.run(all_summaries)
                 writer.add_summary(summary, counter)
             print(loss_value)
-        """
+
         sess.run(test_init_op)
         loss_value, predictions = sess.run((loss, logits))
         print("These are the model's predictions")
@@ -307,9 +307,6 @@ def my_model_fn(train_dataset, test_dataset,
         print(loss_value)
         writer.close()
         return loss_value, predictions
-        """
-
-# ------- ! BEGIN DATA IMPORT PIPELINE ! ------- #
 
 
 def prepare_data(feature_set, label_list, shuffle=False):
