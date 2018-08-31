@@ -358,9 +358,9 @@ if CROSS_VAL:
 """
 classifier = tf.estimator.Estimator(
     model_fn=my_model_fn,
-    model_dir="C:/Users/kang828/Desktop/Cyber-GSSL/prop_algs/tmp/log/draft5",
+    model_dir="C:/Users/kang828/Desktop/Cyber-GSSL/prop_algs/tmp/log/draft6",
     params={"hidden_nodes": [500, 500, 20],
-            "log_dir": "draft5",
+            "log_dir": "draft6",
             "LLUU_LIST": TOTAL_LLUU_LIST})
 
 classifier.train(input_fn=lambda: input_fn(EDGE_MATRIX, LABEL_LIST), steps=10)
