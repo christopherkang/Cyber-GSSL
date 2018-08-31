@@ -290,7 +290,9 @@ def my_model_fn(features, labels, mode, params):
         )
 
     optimizer = tf.train.GradientDescentOptimizer(0.01)
-    train = optimizer.minimize(loss)
+    train = optimizer.minimize(loss, global_step=tf.train.get_global_step())
+    for var in tf.trainable_variables():
+        tf.summary.histogram(var.name, var)
 
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train)
 
