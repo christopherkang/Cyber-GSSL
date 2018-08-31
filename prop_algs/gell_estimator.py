@@ -52,9 +52,9 @@ TRAIN_STEPS = 100
 SAMPLE_CONST = 0.1
 
 # ALPHAs - THESE ARE USED AS CONSTANTS IN MULTIPLICATION
-ALPHA_1 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_1")
-ALPHA_2 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_2")
-ALPHA_3 = tf.constant(0.5, dtype=tf.float32, name="ALPHA_3")
+a1 = 0.5
+a2 = 0.5
+a3 = 0.5
 
 # ENABLE CROSS VALIDATION
 CROSS_VAL = True
@@ -86,7 +86,8 @@ def g_theta_total(index):
 
 
 def find_value(index, vector):
-    co_ords = tf.where(tf.equal(index, vector), name="find_value_fn")[0, 0]
+    co_ords = tf.where(tf.equal(
+        tf.to_int32(index), tf.to_int32(vector)), name="find_value_fn")[0, 0]
     return co_ords
 
 
@@ -126,7 +127,7 @@ def c_x(index, labels):
     return -tf.convert_to_tensor(
         (1/num_of_neighbors), dtype=tf.float32) * (tf.matmul(
                   tf.one_hot(labels, depth=NUM_OF_LABELS, dtype=tf.float32),
-                  tf.log(tf.to_float(g_theta_total(index)))))
+                  tf.log(tf.to_float(g_theta_total(index))+(10**-15))))
 
 
 def main_subloss(label_types_to_iterate, ref_vec,
@@ -185,6 +186,7 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
         # iterate through each type of edge
         with tf.variable_scope('Labeled_edges', reuse=True) as scope:
             if label_type_list[0]:
+                ALPHA_1 = tf.constant(a1, dtype=tf.float32, name="ALPHA_1")
                 weight_norm_product = main_subloss(
                     label_type_list[0], reference_vector,
                     predicted, 'Labeled_edges')
@@ -201,6 +203,7 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
 
         with tf.variable_scope('Mixed_edges', reuse=True) as scope:
             if label_type_list[1]:
+                ALPHA_2 = tf.constant(a2, dtype=tf.float32, name="ALPHA_2")
                 weight_norm_product = main_subloss(
                     label_type_list[1], reference_vector,
                     predicted, 'Mixed_edges')
@@ -216,6 +219,7 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
 
         with tf.variable_scope('Unlabeled_edges', reuse=True) as scope:
             if label_type_list[2]:
+                ALPHA_3 = tf.constant(a3, dtype=tf.float32, name="ALPHA_3")
                 weight_norm_product = main_subloss(
                     label_type_list[2], reference_vector,
                     predicted, 'Unlabeled_edges')
@@ -224,7 +228,7 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
             else:
                 temp_sum_UU = 0
 
-        total_loss = tf.reduce_sum(
+        total_loss = (
             tf.get_variable("Labeled_edges/temp_sum_LL", shape=[]) +
             tf.get_variable("Mixed_edges/temp_sum_LU", shape=[]) +
             tf.get_variable("Unlabeled_edges/temp_sum_UU", shape=[]))
@@ -237,83 +241,72 @@ def make_dict_feature_col(dict_of_features):
             for col in dict_of_features]
 
 
-def my_model_fn(train_dataset, test_dataset,
-                hidden_nodes, log_dir, predict_values=False,
-                LLUU_LIST=TOTAL_LLUU_LIST):
+def my_model_fn(features, labels, mode, params):
     """NN Model function
 
     Arguments:
         dataset {pd DF} -- dataset with indices
         hidden_nodes {list} -- list of hidden_nodes
     """
-    with tf.name_scope("Data_Input_Pipeline") as scope:
-        iterator_shell = tf.data.Iterator.from_structure(
-            train_dataset.output_types, train_dataset.output_shapes)
-
-        dataset = iterator_shell.get_next()
-
-        train_init_op = iterator_shell.make_initializer(train_dataset)
-        test_init_op = iterator_shell.make_initializer(test_dataset)
 
     # THIS CREATES THE INPUT LAYER AND IMPORTS DATA
     net = tf.feature_column.input_layer(
-        dataset[0], make_dict_feature_col(dataset[0]))
+        features[0], make_dict_feature_col(features[0]))
 
     # BUILDS HIDDEN LAYERS
-    for units in hidden_nodes:
+    for units in params['hidden_nodes']:
         net = tf.layers.dense(net, units=units, activation=tf.nn.relu)
 
     # BUILDS THE FINAL LAYERS
     logits = tf.layers.dense(
-        net, NUM_OF_LABELS, activation=tf.nn.softmax)
+        net, NUM_OF_LABELS, activation=None)
 
-    loss = custom_loss(dataset[2], logits, dataset[1], LLUU_LIST)
+    predicted_classes = tf.argmax(logits, 1)
+
+    scaled_logits = tf.nn.softmax(logits)
+
+    if mode == tf.estimator.ModeKeys.PREDICT:
+        predictions = {
+            'predicted_classes': predicted_classes,
+            'probabilities': scaled_logits,
+            'logits': logits,
+        }
+        return tf.estimator.EstimatorSpec(mode, predictions=predictions)
+
+    loss = custom_loss(
+        labels, scaled_logits, features[1], params['LLUU_LIST'])
+
+    accuracy = tf.metrics.accuracy(
+        labels=labels, predictions=predicted_classes, name='acc_op')
+
+    metrics = {
+        'accuracy': accuracy,
+    }
+    tf.summary.scalar('accuracy', accuracy[1])
+
+    if mode == tf.estimator.ModeKeys.EVAL:
+        return tf.estimator.EstimatorSpec(
+            mode, loss=loss, eval_metric_ops=metrics
+        )
 
     optimizer = tf.train.GradientDescentOptimizer(0.01)
     train = optimizer.minimize(loss)
 
-    init = tf.global_variables_initializer()
-
-    with tf_debug.LocalCLIDebugWrapperSession(tf.Session()) as sess:
-        writer = tf.summary.FileWriter("./tmp/log/%s" % log_dir, sess.graph)
-        """ THIS CODE RESULTS IN SIGNIFICANT PERFORMANCE HITS
-        for var in tf.trainable_variables():
-            tf.summary.histogram(var.name, var)
-        """
-        all_summaries = tf.summary.merge_all()
-        sess.run(init)
-        sess.run(train_init_op)
-        for counter in range(100):
-            _, loss_value = sess.run((train, loss))
-            if counter % 5 == 0:
-                summary = sess.run(all_summaries)
-                writer.add_summary(summary, counter)
-                print("summed!")
-            print(loss_value)
-        with tf.name_scope("Testing_Phase") as scope:
-            sess.run(test_init_op)
-            loss_value, predictions = sess.run((loss, logits))
-            print("These are the model's predictions")
-            print(predictions)
-            print("This is the loss")
-            print(loss_value)
-        writer.close()
-        return loss_value, predictions
+    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train)
 
 
-def prepare_data(feature_set, label_list, shuffle=False):
-    with tf.name_scope("Prep_data_pipe") as scope:
-        zipped_features = {str(key): np.array(value)
-                           for key, value in dict(feature_set).items()}
-        slices = tf.data.Dataset.from_tensor_slices(
-            (zipped_features,
-             feature_set.index.values,
-             label_list.values.astype(int)))
-        if shuffle:
-            slices = slices.shuffle(100)
-        slices = slices.batch(len(feature_set)).repeat(count=None)
-        # THIS WILL OUTPUT, ROW BY ROW, THE NODES
-        return slices
+def input_fn(feature_set, label_list, shuffle=False):
+    zipped_features = {str(key): np.array(value)
+                       for key, value in dict(feature_set).items()}
+    slices = tf.data.Dataset.from_tensor_slices(
+        ((zipped_features,
+            feature_set.index.values),
+            label_list.values.astype(int)))
+    if shuffle:
+        slices = slices.shuffle(100)
+    slices = slices.batch(len(feature_set)).repeat(count=None)
+    slices.make_one_shot_iterator().get_next()
+    return slices
 
 
 def check_neighbors(node_index_1, node_index_2):
@@ -326,7 +319,7 @@ def check_neighbors(node_index_1, node_index_2):
     else:
         return 1
 
-
+"""
 if CROSS_VAL:
     loss_table = []
     prediction_table = []
@@ -339,8 +332,8 @@ if CROSS_VAL:
             test_feature = EDGE_MATRIX.iloc[test]
             test_label = LABEL_LIST.iloc[test]
 
-            train_dataset = prepare_data(train_feature, train_label)
-            test_dataset = prepare_data(test_feature, test_label)
+            train_dataset = input_fn(train_feature, train_label)
+            test_dataset = input_fn(test_feature, test_label)
 
             edge_list = EDGE_MATRIX[
                 EDGE_MATRIX.index.isin(train_feature.index.values)]
@@ -362,6 +355,12 @@ if CROSS_VAL:
             "draft4_1", LLUU_LIST=train_LLUU)
         loss_table.append(losses)
         prediction_table.append(preds)
-else:
-    input_data = prepare_data(EDGE_MATRIX, LABEL_LIST)
-    my_model_fn(input_data, input_data, [500, 500, 20], "draft2")
+"""
+classifier = tf.estimator.Estimator(
+    model_fn=my_model_fn,
+    model_dir="C:/Users/kang828/Desktop/Cyber-GSSL/prop_algs/tmp/log/draft5",
+    params={"hidden_nodes": [500, 500, 20],
+            "log_dir": "draft5",
+            "LLUU_LIST": TOTAL_LLUU_LIST})
+
+classifier.train(input_fn=lambda: input_fn(EDGE_MATRIX, LABEL_LIST), steps=10)
