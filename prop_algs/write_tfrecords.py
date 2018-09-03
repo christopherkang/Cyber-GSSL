@@ -17,12 +17,11 @@ example = tf.train.Example(features=tf.train.Features(
     feature=feature_dict
 ))
 
-print(example)
-
 # Write TFrecord file
 with tf.python_io.TFRecordWriter('testweights.tfrecord') as writer:
     writer.write(example.SerializeToString())
 
+"""
 # Read and print data:
 sess = tf.Session()
 
@@ -46,4 +45,17 @@ tf.train.start_queue_runners(sess)
 
 # Print features
 for name, tensor in read_data.items():
-    print('{}: {}'.format(name, tensor.eval()))
+    print('{}: {}'.format(name, tensor.eval(session=sess)))
+"""
+
+# Even though TF Records works, it is too poorly documented to be reliable
+# There is also disagreement as to whether this relies upon queue runners 
+
+
+with tf.Session() as sess:
+    dataset = tf.data.TFRecordDataset('testweights.tfrecord')
+    dataset = dataset.map(lambda x: tf.decode_raw(x, out_type=tf.float32))
+    dataset = dataset.repeat()
+    iterator = dataset.make_one_shot_iterator().get_next()
+    print(iterator.eval())
+    print(iterator.eval())
