@@ -4,7 +4,6 @@
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-from tensorflow.python import debug as tf_debug
 from sklearn.model_selection import KFold
 
 import os
@@ -57,7 +56,7 @@ a2 = 0.5
 a3 = 0.5
 
 # ENABLE CROSS VALIDATION
-CROSS_VAL = True
+CROSS_VAL = False
 NUM_OF_SPLITS = 3
 
 
