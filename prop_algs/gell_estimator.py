@@ -85,13 +85,33 @@ def g_theta_total(index):
     return tf.convert_to_tensor(average_prob_value/sum(average_prob_value))
 
 
-def find_value(index, vector):
+def find_value(value, vector):
+    """This function finds the coordinates of a value in a vector
+
+    Arguments:
+        value {tf int 32} -- integer to be found
+        vector {tf vect} -- vector to be searched
+
+    Returns:
+        tf int -- coordinate to find the value
+    """
+
     co_ords = tf.where(tf.equal(
-        tf.to_int32(index), tf.to_int32(vector)), name="find_value_fn")[0, 0]
+        tf.to_int32(value), tf.to_int32(vector)), name="find_value_fn")[0, 0]
     return co_ords
 
 
 def d_term_h_index(pairs, nn_output):
+    """Returns the norms of pairs of vector indices from the nn output
+
+    Arguments:
+        pairs {tf int/float} -- vector indices
+        nn_output {matrix} -- list of all the outputs of the nn
+
+    Returns:
+        vector -- vector of all the pairwise norms
+    """
+
     norm_vector = tf.map_fn(
         lambda a: tf.norm(
             nn_output[tf.to_int32(a[0])] - nn_output[tf.to_int32(a[1])]),
@@ -132,6 +152,20 @@ def c_x(index, labels):
 
 def main_subloss(label_types_to_iterate, ref_vec,
                  given_logits, given_var_scope):
+    """This is the main component of loss shared across LL/LU/UU
+
+    Arguments:
+        label_types_to_iterate {list} -- nested list of paired node indices
+        to search through (part of LL/LU/ or UU)
+        ref_vec {vec} -- reference vector - the index of the vector corresponds
+        to the actual number, and the value corresponds to the tf index
+        given_logits {vec} -- values of the logit outputs
+        given_var_scope {str} -- name of the variable scope to use
+
+    Returns:
+        int -- returns the product of the norms and the edge weights
+    """
+
     with tf.variable_scope(given_var_scope) as scope:
         weight_tensor = tf.expand_dims(tf.convert_to_tensor(
                         [EDGE_MATRIX.loc[u_w, v_w]
@@ -265,16 +299,17 @@ def my_model_fn(features, labels, mode, params):
 
     scaled_logits = tf.nn.softmax(logits)
 
+    loss = custom_loss(
+        labels, scaled_logits, features[1], params['LLUU_LIST'])
+
     if mode == tf.estimator.ModeKeys.PREDICT:
         predictions = {
             'predicted_classes': predicted_classes,
             'probabilities': scaled_logits,
             'logits': logits,
+            'loss': loss,
         }
         return tf.estimator.EstimatorSpec(mode, predictions=predictions)
-
-    loss = custom_loss(
-        labels, scaled_logits, features[1], params['LLUU_LIST'])
 
     accuracy = tf.metrics.accuracy(
         labels=labels, predictions=predicted_classes, name='acc_op')
@@ -298,6 +333,20 @@ def my_model_fn(features, labels, mode, params):
 
 
 def input_fn(feature_set, label_list, shuffle=False):
+    """Used to convert numpy arrays into tf Dataset slicese
+
+    Arguments:
+        feature_set {pandas df} -- 500x500 feature array
+        label_list {pandas df} -- 500x1 labels
+
+    Keyword Arguments:
+        shuffle {bool} -- decides whether data should be shuffled
+        (default: {False})
+
+    Returns:
+        tf Dataset iterator -- iterator to be used within model_fn
+    """
+
     zipped_features = {str(key): np.array(value)
                        for key, value in dict(feature_set).items()}
     slices = tf.data.Dataset.from_tensor_slices(
@@ -312,6 +361,16 @@ def input_fn(feature_set, label_list, shuffle=False):
 
 
 def check_neighbors(node_index_1, node_index_2):
+    """Determines the type of an edge
+
+    Arguments:
+        node_index_1 {int} -- index of arbitrary node
+        node_index_2 {int} -- index of arbitrary node
+
+    Returns:
+        int -- this refers to the 1st level index of a nested list
+    """
+
     if (LABEL_LIST.loc[node_index_1][0] != -1 and
        LABEL_LIST.loc[node_index_2][0] != -1):
         return 0
@@ -321,7 +380,7 @@ def check_neighbors(node_index_1, node_index_2):
     else:
         return 1
 
-"""
+
 if CROSS_VAL:
     loss_table = []
     prediction_table = []
@@ -333,9 +392,6 @@ if CROSS_VAL:
             train_label = LABEL_LIST.iloc[train]
             test_feature = EDGE_MATRIX.iloc[test]
             test_label = LABEL_LIST.iloc[test]
-
-            train_dataset = input_fn(train_feature, train_label)
-            test_dataset = input_fn(test_feature, test_label)
 
             edge_list = EDGE_MATRIX[
                 EDGE_MATRIX.index.isin(train_feature.index.values)]
@@ -351,18 +407,28 @@ if CROSS_VAL:
                                    edge_list.columns.values[node_2])].append(
                                        [node_1,
                                         edge_list.columns.values[node_2]])
+        classifier = tf.estimator.Estimator(
+            model_fn=my_model_fn,
+            model_dir="C:/Users/kang828/Desktop/Cyber-GSSL/prop_algs/tmp/log/draft7",
+            params={"hidden_nodes": [500, 500, 20],
+                    "log_dir": "draft6",
+                    "LLUU_LIST": train_LLUU})
 
-        losses, preds = my_model_fn(
-            train_dataset, test_dataset, [500, 500, 20],
-            "draft4_1", LLUU_LIST=train_LLUU)
-        loss_table.append(losses)
-        prediction_table.append(preds)
-"""
-classifier = tf.estimator.Estimator(
-    model_fn=my_model_fn,
-    model_dir="C:/Users/kang828/Desktop/Cyber-GSSL/prop_algs/tmp/log/draft6",
-    params={"hidden_nodes": [500, 500, 20],
-            "log_dir": "draft6",
-            "LLUU_LIST": TOTAL_LLUU_LIST})
+        classifier.train(
+            input_fn=lambda: input_fn(train_feature, train_label), steps=10)
 
-classifier.train(input_fn=lambda: input_fn(EDGE_MATRIX, LABEL_LIST), steps=10)
+        # output_dict = classifier.predict()
+
+        # loss_table.append(output_dict['loss'])
+        # prediction_table.append(output_dict['predictions'])
+else:
+    classifier = tf.estimator.Estimator(
+        model_fn=my_model_fn,
+        model_dir="C:/Users/kang828/Desktop/Cyber-GSSL/prop_algs/tmp/log/draft6",
+        params={"hidden_nodes": [500, 500, 20],
+                "log_dir": "draft6",
+                "LLUU_LIST": TOTAL_LLUU_LIST})
+
+    classifier.train(input_fn=lambda: input_fn(EDGE_MATRIX, LABEL_LIST), steps=10)
+
+    # classifier.predict()
