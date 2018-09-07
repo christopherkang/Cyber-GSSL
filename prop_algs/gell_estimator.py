@@ -489,21 +489,21 @@ if CROSS_VAL:
         # prediction_table.append(output_dict['predictions'])
 else:
     train_LLUU = [[], [], []]
-    for node_1 in EDGE_MATRIX.index.values:
-        selected_row = EDGE_MATRIX.loc[node_1]
+    for node_1 in EDGE_MATRIX.loc[1:100, 1:100].index.values:
+        selected_row = EDGE_MATRIX.loc[node_1, 1:100]
         for node_2 in selected_row.nonzero()[0]:
             if node_2 > node_1:
                 train_LLUU[check_neighbors(node_1,
-                           EDGE_MATRIX.columns.values[node_2])].append(
-                           [node_1, EDGE_MATRIX.columns.values[node_2]])
+                           EDGE_MATRIX.loc[1:100, 1:100].columns.values[node_2])].append(
+                           [node_1, EDGE_MATRIX.loc[1:100, 1:100].columns.values[node_2]])
     assert not train_LLUU[0]
     assert not train_LLUU[1]
     my_feat_cols = []
-    for feat_col in EDGE_MATRIX.index.values:
+    for feat_col in EDGE_MATRIX.loc[1:100, 1:100].index.values:
         my_feat_cols.append(tf.feature_column.numeric_column(str(feat_col)))
     classifier = tf.estimator.Estimator(
         model_fn=my_model_fn,
-        model_dir="C:/Users/kang828/Desktop/Cyber-GSSL/prop_algs/tmp/log3/draft6_rand",
+        model_dir="C:/Users/kang828/Desktop/Cyber-GSSL/prop_algs/tmp/log3/draft12_rand",
         # model_dir="C:/Users/kang828/Desktop/pleasedeargodwork",
         params={"hidden_nodes": [500, 500, 20],
                 'classes': NUM_OF_LABELS,
@@ -511,7 +511,7 @@ else:
                 'feat_cols': my_feat_cols, })
 
     classifier.train(
-        input_fn=lambda: input_fn(EDGE_MATRIX, LABEL_LIST), steps=1000)
+        input_fn=lambda: input_fn(EDGE_MATRIX.loc[1:100, 1:100], LABEL_LIST.loc[1:100]), steps=1000)
     # predictions = classifier.predict(input_fn=lambda: input_fn(EDGE_MATRIX, LABEL_LIST))
     # for n in zip(predictions):
     #     print(n)
