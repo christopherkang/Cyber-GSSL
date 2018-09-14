@@ -70,7 +70,7 @@ TOTAL_LLUU_LIST = readfile.access_file("../data/total_edge_type.txt")
 TRAIN_STEPS = 100
 
 # PROPORTION OF EDGES TO SAMPLE
-SAMPLE_CONST = 0.001
+SAMPLE_CONST = 0.1
 
 # ALPHAs - THESE ARE USED AS CONSTANTS IN MULTIPLICATION
 a1 = 0.5
@@ -82,7 +82,7 @@ CROSS_VAL = False
 NUM_OF_SPLITS = 3
 
 
-def custom_loss(labels, predicted, reference_vector, label_type_list):
+def custom_loss(labels, predicted, reference_vector, feature_set, label_type_list):
     """The custom loss function for the NN
 
     Arguments:
@@ -134,7 +134,7 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
         norm_vector = tf.Print(norm_vector, [norm_vector], "NORM_VEC", summarize=20)
         return norm_vector
 
-    def c_x(index, labels, predicted):
+    def c_x(index, feature_set, labels, predicted):
         """This function finds the cross entropy described in the loss fn
 
         Note: we do not need to check for erroneous labels (i.e. -1) bc they
@@ -151,8 +151,10 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
 
         print(index.get_shape())
 
-        num_of_neighbors = tf.convert_to_tensor(np.count_nonzero(
-            EDGE_MATRIX.loc[index]), dtype=tf.float64)
+        # num_of_neighbors = tf.convert_to_tensor(np.count_nonzero(
+        #     EDGE_MATRIX.loc[index]), dtype=tf.float64)
+
+        num_of_neighbors = tf.count_nonzero(feature_set[index], 1)
 
         # THIS FUNCTION IS RELATIVELY COMPLEX: LET'S BREAK IT DOWN
         # FIRST, WE ARE CONVERTING THE VALUE TO A TENSOR
@@ -167,7 +169,7 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
         return cross_entropy
 
     def main_subloss(label_types_to_iterate, ref_vec,
-                     given_logits, given_var_scope):
+                     given_logits, given_var_scope, feature_set):
         """This is the main component of loss shared across LL/LU/UU
 
         Arguments:
@@ -184,7 +186,7 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
 
         with tf.variable_scope(given_var_scope) as scope:
             weight_tensor = tf.expand_dims(tf.convert_to_tensor(
-                            [EDGE_MATRIX.loc[u_w, v_w]
+                            [feature_set[u_w-1][v_w-1]
                              for u_w, v_w in label_types_to_iterate]), 1)
             label_tensor = tf.reshape(label_types_to_iterate, [-1])
             relative_indices = tf.map_fn(
@@ -198,7 +200,7 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
                 tf.matmul(norm_tensor, weight_tensor), [])
             return tf.cast(product_norm_weight, tf.float64)
 
-    def labeled_subloss(given_edge_list, ref_vec, labels, predicted):
+    def labeled_subloss(given_edge_list, ref_vec, labels, predicted, feature_set):
         # iterate through each type of edge
         with tf.variable_scope('Labeled_edges', reuse=tf.AUTO_REUSE) as scope:
             temp_sum_LL = tf.get_variable("temp_sum_LL", shape=[])
@@ -206,12 +208,12 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
                 ALPHA_1 = tf.constant(a1, dtype=tf.float64, name="ALPHA_1")
                 weight_norm_product = main_subloss(
                     given_edge_list, ref_vec,
-                    predicted, 'Labeled_edges')
+                    predicted, 'Labeled_edges', feature_set)
                 c_uv_summed_term = tf.reduce_sum(
                     tf.convert_to_tensor(
-                        [c_x(u_c, labels[find_value(u_c, ref_vec)], predicted) +
-                        c_x(v_c, labels[find_value(v_c, ref_vec)], predicted)
-                        for u_c, v_c in given_edge_list]))
+                        [c_x(u_c, feature_set, labels[find_value(u_c, ref_vec)], predicted) +
+                         c_x(v_c, feature_set, labels[find_value(v_c, ref_vec)], predicted)
+                         for u_c, v_c in given_edge_list]))
                 temp_sum_LL = ALPHA_1 * (
                     weight_norm_product + c_uv_summed_term)
                 tf.summary.scalar("Labeled_subloss", temp_sum_LL)
@@ -219,17 +221,17 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
             else:
                 return tf.convert_to_tensor(0, dtype=tf.float64)
 
-    def mixed_subloss(given_edge_list, ref_vec, labels, predicted):
+    def mixed_subloss(given_edge_list, ref_vec, labels, predicted, feature_set):
         with tf.variable_scope('Mixed_edges', reuse=tf.AUTO_REUSE) as scope:
             temp_sum_LU = tf.get_variable("temp_sum_LU", shape=[])
             if given_edge_list:
                 ALPHA_2 = tf.constant(a2, dtype=tf.float64, name="ALPHA_2")
                 weight_norm_product = main_subloss(
                     given_edge_list, ref_vec,
-                    predicted, 'Mixed_edges')
+                    predicted, 'Mixed_edges', feature_set)
                 c_uv_summed_term = tf.reduce_sum(
                     tf.convert_to_tensor(
-                        [c_x(u_c, labels[find_value(u_c, ref_vec)], predicted)
+                        [c_x(u_c, feature_set, labels[find_value(u_c, ref_vec)], predicted)
                             for u_c, u_v in given_edge_list]))
                 temp_sum_LU = ALPHA_2 * (
                     weight_norm_product + c_uv_summed_term)
@@ -238,14 +240,14 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
             else:
                 return tf.convert_to_tensor(0, dtype=tf.float64)
 
-    def unlabeled_subloss(given_edge_list, ref_vec, labels, predicted):
+    def unlabeled_subloss(given_edge_list, ref_vec, labels, predicted, feature_set):
         with tf.variable_scope('Unlabeled_edges', reuse=tf.AUTO_REUSE) as scope:
             temp_sum_UU = tf.get_variable("temp_sum_UU", shape=[])
             if given_edge_list:
                 ALPHA_3 = tf.constant(a3, dtype=tf.float64, name="ALPHA_3")
                 weight_norm_product = main_subloss(
                     given_edge_list, ref_vec,
-                    predicted, 'Unlabeled_edges')
+                    predicted, 'Unlabeled_edges', feature_set)
                 temp_sum_UU = ALPHA_3 * weight_norm_product
                 tf.summary.scalar("Unlabeled", temp_sum_UU)
                 return temp_sum_UU
@@ -273,33 +275,16 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
                                   for x in np.random.randint(
                                     0, len(label_type_list[2]), UU_to_sample)]
 
-        """
-
-        total_loss = (
-            graph.name_scope('Labeled_edges').get_tensor_by_name("temp_sum_LL:0") +
-            graph.name_scope('Mixed_edges').get_tensor_by_name("temp_sum_LU:0") +
-            graph.name_scope('Unlabeled_edges').get_tensor_by_name("temp_sum_UU:0"))
-
-        total_loss = (
-            tf.get_variable("Labeled_edges/temp_sum_LL", shape=[]) +
-            tf.get_variable("Mixed_edges/temp_sum_LU", shape=[]) +
-            tf.get_variable("Unlabeled_edges/temp_sum_UU", shape=[]))
-        """
         total_loss = (
             labeled_subloss(
-                label_type_list[0], reference_vector, labels, predicted) +
+                label_type_list[0], reference_vector, labels, predicted, feature_set) +
             mixed_subloss(
-                label_type_list[1], reference_vector, labels, predicted) +
+                label_type_list[1], reference_vector, labels, predicted, feature_set) +
             unlabeled_subloss(
-                label_type_list[2], reference_vector, labels, predicted)
+                label_type_list[2], reference_vector, labels, predicted, feature_set)
         )
         tf.summary.scalar("LOSS", total_loss)
         return total_loss
-
-
-def make_dict_feature_col(dict_of_features):
-    return [tf.feature_column.numeric_column(str(col))
-            for col in dict_of_features]
 
 
 def my_model_fn(features, labels, mode, params):
@@ -317,6 +302,8 @@ def my_model_fn(features, labels, mode, params):
     net = tf.feature_column.input_layer(
         features[0], params['feat_cols'])
 
+    saved_features = net
+
     # BUILDS HIDDEN LAYERS
     for units in params['hidden_nodes']:
         net = tf.layers.dense(net, units=units, activation=tf.nn.relu)
@@ -331,7 +318,7 @@ def my_model_fn(features, labels, mode, params):
     # scaled_logits = tf.clip_by_value(scaled_logits, 1e-10, 1)
 
     loss = custom_loss(
-        labels, scaled_logits, features[1], params['LLUU_LIST'])
+        labels, scaled_logits, features[1], saved_features, params['LLUU_LIST'])
 
     loss = tf.Print(loss, [loss])
 
@@ -375,6 +362,11 @@ def my_model_fn(features, labels, mode, params):
 
     return tf.estimator.EstimatorSpec(
         mode, loss=loss, train_op=train, training_hooks=[summary_hook])
+
+
+def make_dict_feature_col(dict_of_features):
+    return [tf.feature_column.numeric_column(str(col))
+            for col in dict_of_features]
 
 
 def input_fn(feature_set, label_list, shuffle=False):
@@ -487,7 +479,7 @@ else:
         my_feat_cols.append(tf.feature_column.numeric_column(str(feat_col)))
     classifier = tf.estimator.Estimator(
         model_fn=my_model_fn,
-        model_dir="/tmp/log/newdrafts7",
+        model_dir="/tmp/log/newdrafts9",
         # model_dir="C:/Users/kang828/Desktop/pleasedeargodwork",
         params={"hidden_nodes": [30, 30, 30],
                 'classes': NUM_OF_LABELS,
