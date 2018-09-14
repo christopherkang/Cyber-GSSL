@@ -16,12 +16,15 @@ np.random.seed(0)
 # EDGE_MATRIX format: columns are connections, rows are individual nodes
 # values are weights
 EDGE_MATRIX = pd.read_pickle("../data/pandas_weight_array.pickle")
-EDGE_MATRIX[EDGE_MATRIX<=0.01] = 0
-EDGE_MATRIX[EDGE_MATRIX>=1] = 1
+EDGE_MATRIX = EDGE_MATRIX.astype('float64')
+EDGE_MATRIX[EDGE_MATRIX[EDGE_MATRIX<=0.01]>0] = 0.01
+EDGE_MATRIX[EDGE_MATRIX>=0.99] = 0.99
 print(EDGE_MATRIX.max().max())
 assert EDGE_MATRIX.equals(EDGE_MATRIX.transpose())
 assert EDGE_MATRIX.loc[5,5] == 0
-assert EDGE_MATRIX[EDGE_MATRIX>=0].isnull().sum().sum() == 0
+assert EDGE_MATRIX.isnull().sum().sum() == 0
+
+EDGE_MATRIX = pd.DataFrame(np.zeros((500, 500))+0.5, index=np.arange(1,501), columns=np.arange(1,501))
 
 # LABEL_LIST format: columns are labels and LL/LU/UU status
 # rows are individual notes
@@ -48,12 +51,12 @@ LABEL_LIST = LABEL_LIST.astype(int)
 LABEL_LIST = pd.DataFrame(
     np.zeros(500)-1, index=range(1, 501), columns=["LABELS"]
 )
-LABEL_LIST = LABEL_LIST.astype(int)
+LABEL_LIST = LABEL_LIST.astype('int32')
 # NUMBER OF LABELS - THIS SHOULD BE DYNAMICALLY ASSIGNED IN THE FUTURE
 """
 NUM_OF_LABELS = LABEL_LIST[LABEL_LIST>=0].loc[:, "LABELS"].nunique()
 """
-NUM_OF_LABELS = 10
+NUM_OF_LABELS = 3
 
 # THIS IS A NESTED LIST THAT DESCRIBES THE CONNECTIONS EACH NODE HAS
 # BE MINDFUL THAT THE 0TH INDEX IS ASSOCIATED WITH AN IMAGINARY "0TH"
@@ -67,7 +70,7 @@ TOTAL_LLUU_LIST = readfile.access_file("../data/total_edge_type.txt")
 TRAIN_STEPS = 100
 
 # PROPORTION OF EDGES TO SAMPLE
-SAMPLE_CONST = 0.1
+SAMPLE_CONST = 0.001
 
 # ALPHAs - THESE ARE USED AS CONSTANTS IN MULTIPLICATION
 a1 = 0.5
@@ -99,7 +102,7 @@ def g_theta_total(index):
                     index, neighbors]
     if sum(average_prob_value) == 0:
         return tf.convert_to_tensor(
-            average_prob_value + 1/NUM_OF_LABELS)
+            average_prob_value + 1/NUM_OF_LABELS, dtype=tf.float64)
     scaled_probs = average_prob_value/sum(average_prob_value)
     return tf.convert_to_tensor(scaled_probs)
 
@@ -164,7 +167,7 @@ def c_x(index, labels, predicted):
     print(index.get_shape())
 
     num_of_neighbors = tf.convert_to_tensor(np.count_nonzero(
-        EDGE_MATRIX.loc[index]), dtype=tf.float32)
+        EDGE_MATRIX.loc[index]), dtype=tf.float64)
 
     # THIS FUNCTION IS RELATIVELY COMPLEX: LET'S BREAK IT DOWN
     # FIRST, WE ARE CONVERTING THE VALUE TO A TENSOR
@@ -173,7 +176,7 @@ def c_x(index, labels, predicted):
     # USING ONE_HOT, WE CAN CREATE A ONE HOT PROB VECTOR WITH 1 AS TRUE
     # WE MULTIPLY!
     cross_entropy = -(1/num_of_neighbors) * tf.matmul(
-                  tf.one_hot(labels, depth=NUM_OF_LABELS, dtype=tf.float32),
+                  tf.one_hot(labels, depth=NUM_OF_LABELS, dtype=tf.float64),
                   tf.transpose(tf.log(predicted[index])))
     cross_entropy = tf.Print(cross_entropy, [cross_entropy], "XENTROPY")
     return cross_entropy
@@ -210,7 +213,7 @@ def main_subloss(label_types_to_iterate, ref_vec,
         # norm_tensor = tf.square(norm_tensor)
         product_norm_weight = tf.reshape(
             tf.matmul(norm_tensor, weight_tensor), [])
-        return product_norm_weight
+        return tf.cast(product_norm_weight, tf.float64)
 
 
 def labeled_subloss(given_edge_list, ref_vec, labels, predicted):
@@ -218,7 +221,7 @@ def labeled_subloss(given_edge_list, ref_vec, labels, predicted):
     with tf.variable_scope('Labeled_edges', reuse=tf.AUTO_REUSE) as scope:
         temp_sum_LL = tf.get_variable("temp_sum_LL", shape=[])
         if given_edge_list:
-            ALPHA_1 = tf.constant(a1, dtype=tf.float32, name="ALPHA_1")
+            ALPHA_1 = tf.constant(a1, dtype=tf.float64, name="ALPHA_1")
             weight_norm_product = main_subloss(
                 given_edge_list, ref_vec,
                 predicted, 'Labeled_edges')
@@ -232,14 +235,14 @@ def labeled_subloss(given_edge_list, ref_vec, labels, predicted):
             tf.summary.scalar("Labeled_subloss", temp_sum_LL)
             return temp_sum_LL
         else:
-            return tf.convert_to_tensor(0, dtype=tf.float32)
+            return tf.convert_to_tensor(0, dtype=tf.float64)
 
 
 def mixed_subloss(given_edge_list, ref_vec, labels, predicted):
     with tf.variable_scope('Mixed_edges', reuse=tf.AUTO_REUSE) as scope:
         temp_sum_LU = tf.get_variable("temp_sum_LU", shape=[])
         if given_edge_list:
-            ALPHA_2 = tf.constant(a2, dtype=tf.float32, name="ALPHA_2")
+            ALPHA_2 = tf.constant(a2, dtype=tf.float64, name="ALPHA_2")
             weight_norm_product = main_subloss(
                 given_edge_list, ref_vec,
                 predicted, 'Mixed_edges')
@@ -252,14 +255,14 @@ def mixed_subloss(given_edge_list, ref_vec, labels, predicted):
             tf.summary.scalar("Mixed_subloss", temp_sum_LU)
             return temp_sum_LU
         else:
-            return tf.convert_to_tensor(0, dtype=tf.float32)
+            return tf.convert_to_tensor(0, dtype=tf.float64)
 
 
 def unlabeled_subloss(given_edge_list, ref_vec, labels, predicted):
     with tf.variable_scope('Unlabeled_edges', reuse=tf.AUTO_REUSE) as scope:
         temp_sum_UU = tf.get_variable("temp_sum_UU", shape=[])
         if given_edge_list:
-            ALPHA_3 = tf.constant(a3, dtype=tf.float32, name="ALPHA_3")
+            ALPHA_3 = tf.constant(a3, dtype=tf.float64, name="ALPHA_3")
             weight_norm_product = main_subloss(
                 given_edge_list, ref_vec,
                 predicted, 'Unlabeled_edges')
@@ -267,7 +270,7 @@ def unlabeled_subloss(given_edge_list, ref_vec, labels, predicted):
             tf.summary.scalar("Unlabeled", temp_sum_UU)
             return temp_sum_UU
         else:
-            return tf.convert_to_tensor(0, dtype=tf.float32)
+            return tf.convert_to_tensor(0, dtype=tf.float64)
 
 
 def custom_loss(labels, predicted, reference_vector, label_type_list):
@@ -384,7 +387,8 @@ def my_model_fn(features, labels, mode, params):
             mode, loss=loss, eval_metric_ops=metrics
         )
 
-    optimizer = tf.train.GradientDescentOptimizer(0.00000001)
+    # optimizer = tf.train.GradientDescentOptimizer(0.00000001)
+    optimizer = tf.train.AdamOptimizer(0)
     train = optimizer.minimize(loss, global_step=tf.train.get_global_step())
 
     for var in tf.trainable_variables():
@@ -475,7 +479,7 @@ if CROSS_VAL:
                                         edge_list.columns.values[node_2]])
         classifier = tf.estimator.Estimator(
             model_fn=my_model_fn,
-            model_dir="C:/Users/kang828/Desktop/Cyber-GSSL/prop_algs/tmp/log/draft7",
+            model_dir="./tmp/log/draft7",
             params={"hidden_nodes": [500, 500, 20],
                     "log_dir": "draft6",
                     "LLUU_LIST": train_LLUU})
@@ -489,29 +493,29 @@ if CROSS_VAL:
         # prediction_table.append(output_dict['predictions'])
 else:
     train_LLUU = [[], [], []]
-    for node_1 in EDGE_MATRIX.loc[1:100, 1:100].index.values:
-        selected_row = EDGE_MATRIX.loc[node_1, 1:100]
+    for node_1 in EDGE_MATRIX.loc[1:500, 1:500].index.values:
+        selected_row = EDGE_MATRIX.loc[node_1, 1:500]
         for node_2 in selected_row.nonzero()[0]:
             if node_2 > node_1:
                 train_LLUU[check_neighbors(node_1,
-                           EDGE_MATRIX.loc[1:100, 1:100].columns.values[node_2])].append(
-                           [node_1, EDGE_MATRIX.loc[1:100, 1:100].columns.values[node_2]])
+                           EDGE_MATRIX.loc[1:500, 1:500].columns.values[node_2])].append(
+                           [node_1, EDGE_MATRIX.loc[1:500, 1:500].columns.values[node_2]])
     assert not train_LLUU[0]
     assert not train_LLUU[1]
     my_feat_cols = []
-    for feat_col in EDGE_MATRIX.loc[1:100, 1:100].index.values:
+    for feat_col in EDGE_MATRIX.loc[1:500, 1:500].index.values:
         my_feat_cols.append(tf.feature_column.numeric_column(str(feat_col)))
     classifier = tf.estimator.Estimator(
         model_fn=my_model_fn,
-        model_dir="C:/Users/kang828/Desktop/Cyber-GSSL/prop_algs/tmp/log3/draft12_rand",
+        model_dir="/tmp/log/newdrafts1",
         # model_dir="C:/Users/kang828/Desktop/pleasedeargodwork",
-        params={"hidden_nodes": [500, 500, 20],
+        params={"hidden_nodes": [30, 30, 30],
                 'classes': NUM_OF_LABELS,
                 "LLUU_LIST": train_LLUU,
                 'feat_cols': my_feat_cols, })
 
     classifier.train(
-        input_fn=lambda: input_fn(EDGE_MATRIX.loc[1:100, 1:100], LABEL_LIST.loc[1:100]), steps=1000)
+        input_fn=lambda: input_fn(EDGE_MATRIX.loc[1:500, 1:500], LABEL_LIST.loc[1:500]), steps=1000)
     # predictions = classifier.predict(input_fn=lambda: input_fn(EDGE_MATRIX, LABEL_LIST))
     # for n in zip(predictions):
     #     print(n)
