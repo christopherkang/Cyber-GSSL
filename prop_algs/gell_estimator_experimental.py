@@ -24,7 +24,6 @@ assert EDGE_MATRIX.equals(EDGE_MATRIX.transpose())
 assert EDGE_MATRIX.loc[5,5] == 0
 assert EDGE_MATRIX.isnull().sum().sum() == 0
 
-# EDGE_MATRIX = pd.DataFrame(np.zeros((500, 500))+0.5, index=np.arange(1,501), columns=np.arange(1,501))
 
 # LABEL_LIST format: columns are labels and LL/LU/UU status
 # rows are individual notes
@@ -70,7 +69,7 @@ TOTAL_LLUU_LIST = readfile.access_file("../data/total_edge_type.txt")
 TRAIN_STEPS = 100
 
 # PROPORTION OF EDGES TO SAMPLE
-SAMPLE_CONST = 0.001
+SAMPLE_CONST = 0.1
 
 # ALPHAs - THESE ARE USED AS CONSTANTS IN MULTIPLICATION
 a1 = 0.5
@@ -80,6 +79,196 @@ a3 = 0.5
 # ENABLE CROSS VALIDATION
 CROSS_VAL = False
 NUM_OF_SPLITS = 3
+"""
+INSERT EXPERIMENTAL CODE
+"""
+EDGE_MATRIX['NEIGHBORS'] = pd.Series(np.zeros((500)), index=EDGE_MATRIX.index)
+EDGE_MATRIX['GRAPHPRED'] = pd.Series(np.zeros((500)), index=EDGE_MATRIX.index, dtype=object)
+for row in EDGE_MATRIX.index.values:
+    EDGE_MATRIX.loc[row, "NEIGHBORS"] = np.count_nonzero(EDGE_MATRIX.loc[row])
+    average_prob_value = np.zeros((NUM_OF_LABELS, 1))
+    for neighbors in (EDGE_MATRIX.loc[row, :"NEIGHBORS"].nonzero()[0]):
+        print(LABEL_LIST.loc[neighbors, "LABELS"])
+        if LABEL_LIST.loc[neighbors, "LABELS"] == -1:
+            print("test")
+            pass
+        else:
+            average_prob_value[
+                LABEL_LIST.loc[neighbors, "LABELS"]] += EDGE_MATRIX.loc[
+                    index, neighbors]
+    if sum(average_prob_value) == 0:
+        scaled_probs = average_prob_value + 1/NUM_OF_LABELS
+    else:
+        scaled_probs = average_prob_value/sum(average_prob_value)
+    EDGE_MATRIX.loc[row, "GRAPHPRED"] = scaled_probs
+
+print("placeholder")
+
+
+def find_value(value, vector):
+    """This function finds the coordinates of a value in a vector
+
+    Arguments:
+        value {tf int 32} -- integer to be found
+        vector {tf vect} -- vector to be searched
+
+    Returns:
+        tf int -- coordinate to find the value
+    """
+
+    co_ords = tf.where(tf.equal(
+        tf.to_int32(value), tf.to_int32(vector)), name="find_value_fn")[0, 0]
+    return co_ords
+
+
+def d_term_h_index(pairs, nn_output):
+    """Returns the norms of pairs of vector indices from the nn output
+
+    Arguments:
+        pairs {tf int/float} -- vector indices
+        nn_output {matrix} -- list of all the outputs of the nn
+
+    Returns:
+        vector -- vector of all the pairwise norms
+    """
+
+    pairs = tf.transpose(pairs)
+    print(pairs.get_shape())
+    pairs = tf.Print(pairs, [pairs], "PAIRS", summarize=20)
+
+    nn_output = tf.Print(nn_output, [nn_output], "NN_OUT", summarize=20)
+
+    norm_vector = tf.map_fn(
+        lambda a: tf.norm(
+            nn_output[tf.to_int32(a[0])] - nn_output[tf.to_int32(a[1])]),
+        pairs)
+    norm_vector = tf.to_float(norm_vector)
+    norm_vector = tf.Print(norm_vector, [norm_vector], "NORM_VEC", summarize=20)
+    return norm_vector
+
+
+def c_x(index, labels, predicted):
+    """This function finds the cross entropy described in the loss fn
+
+    Note: we do not need to check for erroneous labels (i.e. -1) bc they
+    are already segmented into the three groups
+    Arguments:
+        index {tf tensor} -- should be a vector with the indices of relevant
+            nodes
+        labels {tf tensor} -- should be a vector with the actual labels of
+            the relevant nodes. It should NOT be a one-hot vector.
+
+    Returns:
+        tf tensor -- returns a tensor of all the answers
+    """
+
+    print(index.get_shape())
+
+    num_of_neighbors = tf.convert_to_tensor(np.count_nonzero(
+        EDGE_MATRIX.loc[index]), dtype=tf.float64)
+
+    # THIS FUNCTION IS RELATIVELY COMPLEX: LET'S BREAK IT DOWN
+    # FIRST, WE ARE CONVERTING THE VALUE TO A TENSOR
+    # THEN, WE USE MAP_FN TO APPLY GET_NEIGHBORS TO EACH ELEMENT IN INDEX
+    # NEXT, WE NEED TO SUM OVER THE PRODUCT AND LABELS
+    # USING ONE_HOT, WE CAN CREATE A ONE HOT PROB VECTOR WITH 1 AS TRUE
+    # WE MULTIPLY!
+    cross_entropy = -(1/num_of_neighbors) * tf.matmul(
+                  tf.one_hot(labels, depth=NUM_OF_LABELS, dtype=tf.float64),
+                  tf.transpose(tf.log(predicted[index])))
+    cross_entropy = tf.Print(cross_entropy, [cross_entropy], "XENTROPY")
+    return cross_entropy
+
+
+def main_subloss(label_types_to_iterate, ref_vec,
+                 given_logits, given_var_scope):
+    """This is the main component of loss shared across LL/LU/UU
+
+    Arguments:
+        label_types_to_iterate {list} -- nested list of paired node indices
+        to search through (part of LL/LU/ or UU)
+        ref_vec {vec} -- reference vector - the index of the vector corresponds
+        to the actual number, and the value corresponds to the tf index
+        given_logits {vec} -- values of the logit outputs
+        given_var_scope {str} -- name of the variable scope to use
+
+    Returns:
+        int -- returns the product of the norms and the edge weights
+    """
+
+    with tf.variable_scope(given_var_scope) as scope:
+        weight_tensor = tf.expand_dims(tf.convert_to_tensor(
+                        [EDGE_MATRIX.loc[u_w, v_w]
+                         for u_w, v_w in label_types_to_iterate]), 1)
+        label_tensor = tf.reshape(label_types_to_iterate, [-1])
+        relative_indices = tf.map_fn(
+            lambda a: tf.to_float(
+                find_value(tf.to_int32(a), tf.to_int32(ref_vec))),
+            tf.to_float(label_tensor))
+        relative_indices = tf.reshape(relative_indices, [2, -1])
+        norm_tensor = tf.expand_dims(
+            d_term_h_index(relative_indices, given_logits), axis=0)
+        # norm_tensor = tf.square(norm_tensor)
+        product_norm_weight = tf.reshape(
+            tf.matmul(norm_tensor, weight_tensor), [])
+        return tf.cast(product_norm_weight, tf.float64)
+
+
+def labeled_subloss(given_edge_list, ref_vec, labels, predicted):
+    # iterate through each type of edge
+    with tf.variable_scope('Labeled_edges', reuse=tf.AUTO_REUSE) as scope:
+        temp_sum_LL = tf.get_variable("temp_sum_LL", shape=[])
+        if given_edge_list:
+            ALPHA_1 = tf.constant(a1, dtype=tf.float64, name="ALPHA_1")
+            weight_norm_product = main_subloss(
+                given_edge_list, ref_vec,
+                predicted, 'Labeled_edges')
+            c_uv_summed_term = tf.reduce_sum(
+                tf.convert_to_tensor(
+                    [c_x(u_c, labels[find_value(u_c, ref_vec)], predicted) +
+                     c_x(v_c, labels[find_value(v_c, ref_vec)], predicted)
+                     for u_c, v_c in given_edge_list]))
+            temp_sum_LL = ALPHA_1 * (
+                weight_norm_product + c_uv_summed_term)
+            tf.summary.scalar("Labeled_subloss", temp_sum_LL)
+            return temp_sum_LL
+        else:
+            return tf.convert_to_tensor(0, dtype=tf.float64)
+
+
+def mixed_subloss(given_edge_list, ref_vec, labels, predicted):
+    with tf.variable_scope('Mixed_edges', reuse=tf.AUTO_REUSE) as scope:
+        temp_sum_LU = tf.get_variable("temp_sum_LU", shape=[])
+        if given_edge_list:
+            ALPHA_2 = tf.constant(a2, dtype=tf.float64, name="ALPHA_2")
+            weight_norm_product = main_subloss(
+                given_edge_list, ref_vec,
+                predicted, 'Mixed_edges')
+            c_uv_summed_term = tf.reduce_sum(
+                tf.convert_to_tensor(
+                    [c_x(u_c, labels[find_value(u_c, ref_vec)], predicted)
+                        for u_c, u_v in given_edge_list]))
+            temp_sum_LU = ALPHA_2 * (
+                weight_norm_product + c_uv_summed_term)
+            tf.summary.scalar("Mixed_subloss", temp_sum_LU)
+            return temp_sum_LU
+        else:
+            return tf.convert_to_tensor(0, dtype=tf.float64)
+
+
+def unlabeled_subloss(given_edge_list, ref_vec, labels, predicted):
+    with tf.variable_scope('Unlabeled_edges', reuse=tf.AUTO_REUSE) as scope:
+        temp_sum_UU = tf.get_variable("temp_sum_UU", shape=[])
+        if given_edge_list:
+            ALPHA_3 = tf.constant(a3, dtype=tf.float64, name="ALPHA_3")
+            weight_norm_product = main_subloss(
+                given_edge_list, ref_vec,
+                predicted, 'Unlabeled_edges')
+            temp_sum_UU = ALPHA_3 * weight_norm_product
+            tf.summary.scalar("Unlabeled", temp_sum_UU)
+            return temp_sum_UU
+        else:
+            return tf.convert_to_tensor(0, dtype=tf.float64)
 
 
 def custom_loss(labels, predicted, reference_vector, label_type_list):
@@ -93,165 +282,7 @@ def custom_loss(labels, predicted, reference_vector, label_type_list):
     Returns:
         tf tensor -- scalar of the final loss value
     """
-    def find_value(value, vector):
-        """This function finds the coordinates of a value in a vector
 
-    Arguments:
-        value {tf int 32} -- integer to be found
-        vector {tf vect} -- vector to be searched
-
-    Returns:
-        tf int -- coordinate to find the value
-    """
-        print(f"The vector's shape is {vector.get_shape()}")
-        # co_ords = tf.where(tf.equal(
-        #     tf.to_int32(value), tf.to_int32(vector)), name="find_value_fn")[0, 0]
-        co_ords = vector[value-1]
-        return co_ords
-
-    def d_term_h_index(pairs, nn_output):
-        """Returns the norms of pairs of vector indices from the nn output
-
-        Arguments:
-            pairs {tf int/float} -- vector indices
-            nn_output {matrix} -- list of all the outputs of the nn
-
-        Returns:
-            vector -- vector of all the pairwise norms
-        """
-
-        pairs = tf.transpose(pairs)
-        print(pairs.get_shape())
-        pairs = tf.Print(pairs, [pairs], "PAIRS", summarize=20)
-
-        nn_output = tf.Print(nn_output, [nn_output], "NN_OUT", summarize=20)
-
-        norm_vector = tf.map_fn(
-            lambda a: tf.square(tf.norm(
-                nn_output[tf.to_int32(a[0])] - nn_output[tf.to_int32(a[1])])),
-            pairs)
-        norm_vector = tf.to_float(norm_vector)
-        norm_vector = tf.Print(norm_vector, [norm_vector], "NORM_VEC", summarize=20)
-        return norm_vector
-
-    def c_x(index, labels, predicted):
-        """This function finds the cross entropy described in the loss fn
-
-        Note: we do not need to check for erroneous labels (i.e. -1) bc they
-        are already segmented into the three groups
-        Arguments:
-            index {tf tensor} -- should be a vector with the indices of relevant
-                nodes
-            labels {tf tensor} -- should be a vector with the actual labels of
-                the relevant nodes. It should NOT be a one-hot vector.
-
-        Returns:
-            tf tensor -- returns a tensor of all the answers
-        """
-
-        print(index.get_shape())
-
-        num_of_neighbors = tf.convert_to_tensor(np.count_nonzero(
-            EDGE_MATRIX.loc[index]), dtype=tf.float64)
-
-        # THIS FUNCTION IS RELATIVELY COMPLEX: LET'S BREAK IT DOWN
-        # FIRST, WE ARE CONVERTING THE VALUE TO A TENSOR
-        # THEN, WE USE MAP_FN TO APPLY GET_NEIGHBORS TO EACH ELEMENT IN INDEX
-        # NEXT, WE NEED TO SUM OVER THE PRODUCT AND LABELS
-        # USING ONE_HOT, WE CAN CREATE A ONE HOT PROB VECTOR WITH 1 AS TRUE
-        # WE MULTIPLY!
-        cross_entropy = -(1/num_of_neighbors) * tf.matmul(
-                    tf.one_hot(labels, depth=NUM_OF_LABELS, dtype=tf.float64),
-                    tf.transpose(tf.log(predicted[index]+1e-8)))
-        cross_entropy = tf.Print(cross_entropy, [cross_entropy], "XENTROPY")
-        return cross_entropy
-
-    def main_subloss(label_types_to_iterate, ref_vec,
-                     given_logits, given_var_scope):
-        """This is the main component of loss shared across LL/LU/UU
-
-        Arguments:
-            label_types_to_iterate {list} -- nested list of paired node indices
-            to search through (part of LL/LU/ or UU)
-            ref_vec {vec} -- reference vector - the index of the vector corresponds
-            to the actual number, and the value corresponds to the tf index
-            given_logits {vec} -- values of the logit outputs
-            given_var_scope {str} -- name of the variable scope to use
-
-        Returns:
-            int -- returns the product of the norms and the edge weights
-        """
-
-        with tf.variable_scope(given_var_scope) as scope:
-            weight_tensor = tf.expand_dims(tf.convert_to_tensor(
-                            [EDGE_MATRIX.loc[u_w, v_w]
-                             for u_w, v_w in label_types_to_iterate]), 1)
-            label_tensor = tf.reshape(label_types_to_iterate, [-1])
-            relative_indices = tf.map_fn(
-                lambda a: tf.to_float(
-                    ref_vec[a-1]), label_tensor)
-            relative_indices = tf.reshape(relative_indices, [2, -1])
-            norm_tensor = tf.expand_dims(
-                d_term_h_index(relative_indices, given_logits), axis=0)
-            # norm_tensor = tf.square(norm_tensor)
-            product_norm_weight = tf.reshape(
-                tf.matmul(norm_tensor, weight_tensor), [])
-            return tf.cast(product_norm_weight, tf.float64)
-
-    def labeled_subloss(given_edge_list, ref_vec, labels, predicted):
-        # iterate through each type of edge
-        with tf.variable_scope('Labeled_edges', reuse=tf.AUTO_REUSE) as scope:
-            temp_sum_LL = tf.get_variable("temp_sum_LL", shape=[])
-            if given_edge_list:
-                ALPHA_1 = tf.constant(a1, dtype=tf.float64, name="ALPHA_1")
-                weight_norm_product = main_subloss(
-                    given_edge_list, ref_vec,
-                    predicted, 'Labeled_edges')
-                c_uv_summed_term = tf.reduce_sum(
-                    tf.convert_to_tensor(
-                        [c_x(u_c, labels[find_value(u_c, ref_vec)], predicted) +
-                        c_x(v_c, labels[find_value(v_c, ref_vec)], predicted)
-                        for u_c, v_c in given_edge_list]))
-                temp_sum_LL = ALPHA_1 * (
-                    weight_norm_product + c_uv_summed_term)
-                tf.summary.scalar("Labeled_subloss", temp_sum_LL)
-                return temp_sum_LL
-            else:
-                return tf.convert_to_tensor(0, dtype=tf.float64)
-
-    def mixed_subloss(given_edge_list, ref_vec, labels, predicted):
-        with tf.variable_scope('Mixed_edges', reuse=tf.AUTO_REUSE) as scope:
-            temp_sum_LU = tf.get_variable("temp_sum_LU", shape=[])
-            if given_edge_list:
-                ALPHA_2 = tf.constant(a2, dtype=tf.float64, name="ALPHA_2")
-                weight_norm_product = main_subloss(
-                    given_edge_list, ref_vec,
-                    predicted, 'Mixed_edges')
-                c_uv_summed_term = tf.reduce_sum(
-                    tf.convert_to_tensor(
-                        [c_x(u_c, labels[find_value(u_c, ref_vec)], predicted)
-                            for u_c, u_v in given_edge_list]))
-                temp_sum_LU = ALPHA_2 * (
-                    weight_norm_product + c_uv_summed_term)
-                tf.summary.scalar("Mixed_subloss", temp_sum_LU)
-                return temp_sum_LU
-            else:
-                return tf.convert_to_tensor(0, dtype=tf.float64)
-
-    def unlabeled_subloss(given_edge_list, ref_vec, labels, predicted):
-        with tf.variable_scope('Unlabeled_edges', reuse=tf.AUTO_REUSE) as scope:
-            temp_sum_UU = tf.get_variable("temp_sum_UU", shape=[])
-            if given_edge_list:
-                ALPHA_3 = tf.constant(a3, dtype=tf.float64, name="ALPHA_3")
-                weight_norm_product = main_subloss(
-                    given_edge_list, ref_vec,
-                    predicted, 'Unlabeled_edges')
-                temp_sum_UU = ALPHA_3 * weight_norm_product
-                tf.summary.scalar("Unlabeled", temp_sum_UU)
-                return temp_sum_UU
-            else:
-                return tf.convert_to_tensor(0, dtype=tf.float64)
-    
     with tf.variable_scope('Loss') as loss_scope:
         total_loss = tf.convert_to_tensor(0)
         LL_to_sample = round(len(label_type_list[0]) * SAMPLE_CONST)
@@ -310,12 +341,9 @@ def my_model_fn(features, labels, mode, params):
         hidden_nodes {list} -- list of hidden_nodes
     """
 
-    def replace_none_with_zero(l):
-        return [(tf.to_float(0), i[1]) if i[0]==None else i for i in l] 
-
     # THIS CREATES THE INPUT LAYER AND IMPORTS DATA
     net = tf.feature_column.input_layer(
-        features[0], params['feat_cols'])
+        features[:-2], params['feat_cols'])
 
     # BUILDS HIDDEN LAYERS
     for units in params['hidden_nodes']:
@@ -328,10 +356,10 @@ def my_model_fn(features, labels, mode, params):
     logits = tf.Print(logits, [logits], "LOGITS")
 
     scaled_logits = tf.nn.softmax(logits)
-    # scaled_logits = tf.clip_by_value(scaled_logits, 1e-10, 1)
+    scaled_logits = tf.clip_by_value(scaled_logits, 1e-10, 1)
 
     loss = custom_loss(
-        labels, scaled_logits, features[1], params['LLUU_LIST'])
+        labels, scaled_logits, features[-2:], params['LLUU_LIST'])
 
     loss = tf.Print(loss, [loss])
 
@@ -358,23 +386,21 @@ def my_model_fn(features, labels, mode, params):
         )
 
     # optimizer = tf.train.GradientDescentOptimizer(0.00000001)
+    loss = tf.clip_by_value(loss, 0, 1)
     optimizer = tf.train.AdamOptimizer(0)
-    # gvs = optimizer.compute_gradients(loss)
-    # gvs = replace_none_with_zero(gvs)
-    # print(gvs)
-    # capped_gvs = [(tf.clip_by_value(grad, -1, 1), var) for grad, var in gvs]
-    # train = optimizer.apply_gradients(capped_gvs)
     train = optimizer.minimize(loss, global_step=tf.train.get_global_step())
+
     for var in tf.trainable_variables():
         tf.summary.histogram(var.name, var)
 
-    summary_hook = tf.train.SummarySaverHook(
-        5,
-        output_dir='/tmp/tf',
-        summary_op=tf.summary.merge_all())
+    # summary_hook = tf.train.SummarySaverHook(
+    #     5,
+    #     output_dir='/tmp/tf',
+    #     summary_op=tf.summary.merge_all())
 
     return tf.estimator.EstimatorSpec(
-        mode, loss=loss, train_op=train, training_hooks=[summary_hook])
+        mode, loss=loss, train_op=train,  # training_hooks=[summary_hook]
+        )
 
 
 def input_fn(feature_set, label_list, shuffle=False):
@@ -392,18 +418,11 @@ def input_fn(feature_set, label_list, shuffle=False):
         tf Dataset iterator -- iterator to be used within model_fn
     """
 
-    mapping_table = np.random.choice(len(feature_set), len(feature_set), replace=False)
-
-    feature_set = feature_set.loc[mapping_table, :]
-
     zipped_features = {str(key): np.array(value)
                        for key, value in dict(feature_set).items()}
-    # create the mapping table 
-
     slices = tf.data.Dataset.from_tensor_slices(
-        ((zipped_features,
-            mapping_table),
-            label_list.values.astype(int)))
+        (zipped_features,
+         label_list.values.astype(int)))
     if shuffle:
         slices = slices.shuffle(100)
     slices = slices.batch(len(feature_set)).repeat(count=None)
@@ -487,7 +506,7 @@ else:
         my_feat_cols.append(tf.feature_column.numeric_column(str(feat_col)))
     classifier = tf.estimator.Estimator(
         model_fn=my_model_fn,
-        model_dir="/tmp/log/newdrafts7",
+        model_dir="/tmp/log/newnewdrafts1",
         # model_dir="C:/Users/kang828/Desktop/pleasedeargodwork",
         params={"hidden_nodes": [30, 30, 30],
                 'classes': NUM_OF_LABELS,
