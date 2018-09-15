@@ -71,7 +71,7 @@ TOTAL_LLUU_LIST = readfile.access_file("../data/total_edge_type.txt")
 TRAIN_STEPS = 100
 
 # PROPORTION OF EDGES TO SAMPLE
-SAMPLE_CONST = 0.1
+SAMPLE_CONST = 1
 
 # ALPHAs - THESE ARE USED AS CONSTANTS IN MULTIPLICATION
 a1 = 0.5
@@ -164,10 +164,12 @@ def custom_loss(labels, predicted, reference_vector, feature_set, label_type_lis
         # NEXT, WE NEED TO SUM OVER THE PRODUCT AND LABELS
         # USING ONE_HOT, WE CAN CREATE A ONE HOT PROB VECTOR WITH 1 AS TRUE
         # WE MULTIPLY!
-        cross_entropy = -(1/num_of_neighbors) * tf.matmul(
-                    tf.one_hot(labels, depth=NUM_OF_LABELS, dtype=tf.float32),
-                    tf.transpose(tf.log(predicted[index]+1e-8)))
-        cross_entropy = tf.Print(cross_entropy, [cross_entropy], "XENTROPY")
+        # cross_entropy = -(1/num_of_neighbors) * tf.matmul(
+        #             tf.one_hot(labels, depth=NUM_OF_LABELS, dtype=tf.float32),
+        #             tf.transpose(tf.log(predicted[index]+1e-8)))
+        # cross_entropy = tf.Print(cross_entropy, [cross_entropy], "XENTROPY")
+        cross_entropy = -1(num_of_neighbors) * tf.nn.sparse_softmax_cross_entropy_with_logits(
+            labels=labels, logits=predicted[index])
         return cross_entropy
 
     def main_subloss(label_types_to_iterate, ref_vec,
@@ -314,9 +316,16 @@ def my_model_fn(features, labels, mode, params):
     predicted_classes = tf.argmax(logits, 1)
     logits = tf.Print(logits, [logits], "LOGITS")
 
-
-    scaled_logits = tf.nn.softmax(logits)
+    scaled_logits = logits
+    # scaled_logits = tf.nn.softmax(logits)
     # scaled_logits = tf.clip_by_value(scaled_logits, 1e-10, 1)
+    
+    # the issue w loss is that when sampling edges, some nodes are not included
+    # this causes those excluded nodes to have a loss of None, bc there is technically not 
+    # a connection between the weights and the output
+    # the solution would be to sample ALL edges (no) or replace "none" values with 0 
+    # this function replaces none with 0
+
     print(logits.dtype)
     print(f'Ref Vec dtype{features[1].dtype}')
     loss = custom_loss(
@@ -481,7 +490,7 @@ else:
         my_feat_cols.append(tf.feature_column.numeric_column(str(feat_col)))
     classifier = tf.estimator.Estimator(
         model_fn=my_model_fn,
-        model_dir="/tmp/log/newdrafts12",
+        model_dir="/tmp/log/newdrafts15",
         # model_dir="C:/Users/kang828/Desktop/pleasedeargodwork",
         params={"hidden_nodes": [30, 30, 30],
                 'classes': NUM_OF_LABELS,
