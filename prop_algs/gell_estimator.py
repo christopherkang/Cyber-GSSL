@@ -299,7 +299,10 @@ def my_model_fn(features, labels, mode, params):
         dataset {pd DF} -- dataset with indices
         hidden_nodes {list} -- list of hidden_nodes
     """
+    def replace_none_with_zero(l):
+        return [0 if i==None else i for i in l]
 
+    # https://github.com/tensorflow/tensorflow/issues/783
     # THIS CREATES THE INPUT LAYER AND IMPORTS DATA
     net = tf.feature_column.input_layer(
         features[0], params['feat_cols'])
