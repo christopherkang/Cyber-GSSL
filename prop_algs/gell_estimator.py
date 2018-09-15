@@ -16,13 +16,14 @@ np.random.seed(0)
 # EDGE_MATRIX format: columns are connections, rows are individual nodes
 # values are weights
 EDGE_MATRIX = pd.read_pickle("../data/pandas_weight_array.pickle")
-EDGE_MATRIX = EDGE_MATRIX.astype('float64')
 EDGE_MATRIX[EDGE_MATRIX[EDGE_MATRIX<=0.01]>0] = 0.01
 EDGE_MATRIX[EDGE_MATRIX>=0.99] = 0.99
 print(EDGE_MATRIX.max().max())
 assert EDGE_MATRIX.equals(EDGE_MATRIX.transpose())
 assert EDGE_MATRIX.loc[5,5] == 0
 assert EDGE_MATRIX.isnull().sum().sum() == 0
+
+EDGE_MATRIX = EDGE_MATRIX.astype(np.float32)
 
 # EDGE_MATRIX = pd.DataFrame(np.zeros((500, 500))+0.5, index=np.arange(1,501), columns=np.arange(1,501))
 
@@ -122,15 +123,16 @@ def custom_loss(labels, predicted, reference_vector, feature_set, label_type_lis
 
         pairs = tf.transpose(pairs)
         print(pairs.get_shape())
+        print(f'pairs type is {pairs.dtype}')
         pairs = tf.Print(pairs, [pairs], "PAIRS", summarize=20)
 
         nn_output = tf.Print(nn_output, [nn_output], "NN_OUT", summarize=20)
-
+        print(f'nn_out type is {nn_output.dtype}')
         norm_vector = tf.map_fn(
             lambda a: tf.square(tf.norm(
-                nn_output[tf.to_int32(a[0])] - nn_output[tf.to_int32(a[1])])),
-            pairs)
-        norm_vector = tf.to_float(norm_vector)
+                nn_output[(a[0])] - nn_output[(a[1])])), pairs, dtype=tf.float32)
+        print(f'norm vector type is {norm_vector.dtype}')
+        # norm_vector = tf.to_float(norm_vector)
         norm_vector = tf.Print(norm_vector, [norm_vector], "NORM_VEC", summarize=20)
         return norm_vector
 
@@ -152,7 +154,7 @@ def custom_loss(labels, predicted, reference_vector, feature_set, label_type_lis
         print(index.get_shape())
 
         # num_of_neighbors = tf.convert_to_tensor(np.count_nonzero(
-        #     EDGE_MATRIX.loc[index]), dtype=tf.float64)
+        #     EDGE_MATRIX.loc[index]), dtype=tf.float32)
 
         num_of_neighbors = tf.count_nonzero(feature_set[index], 1)
 
@@ -163,7 +165,7 @@ def custom_loss(labels, predicted, reference_vector, feature_set, label_type_lis
         # USING ONE_HOT, WE CAN CREATE A ONE HOT PROB VECTOR WITH 1 AS TRUE
         # WE MULTIPLY!
         cross_entropy = -(1/num_of_neighbors) * tf.matmul(
-                    tf.one_hot(labels, depth=NUM_OF_LABELS, dtype=tf.float64),
+                    tf.one_hot(labels, depth=NUM_OF_LABELS, dtype=tf.float32),
                     tf.transpose(tf.log(predicted[index]+1e-8)))
         cross_entropy = tf.Print(cross_entropy, [cross_entropy], "XENTROPY")
         return cross_entropy
@@ -189,23 +191,24 @@ def custom_loss(labels, predicted, reference_vector, feature_set, label_type_lis
                             [feature_set[u_w-1][v_w-1]
                              for u_w, v_w in label_types_to_iterate]), 1)
             label_tensor = tf.reshape(label_types_to_iterate, [-1])
+            print(f'REF_VEC dtype {ref_vec.dtype}')
             relative_indices = tf.map_fn(
-                lambda a: tf.to_float(
-                    ref_vec[a-1]), label_tensor)
+                lambda a: ref_vec[a-1], label_tensor)
+            print(f'relative_indices dtype {relative_indices.dtype}')
             relative_indices = tf.reshape(relative_indices, [2, -1])
             norm_tensor = tf.expand_dims(
                 d_term_h_index(relative_indices, given_logits), axis=0)
             # norm_tensor = tf.square(norm_tensor)
             product_norm_weight = tf.reshape(
                 tf.matmul(norm_tensor, weight_tensor), [])
-            return tf.cast(product_norm_weight, tf.float64)
+            return product_norm_weight
 
     def labeled_subloss(given_edge_list, ref_vec, labels, predicted, feature_set):
         # iterate through each type of edge
         with tf.variable_scope('Labeled_edges', reuse=tf.AUTO_REUSE) as scope:
             temp_sum_LL = tf.get_variable("temp_sum_LL", shape=[])
             if given_edge_list:
-                ALPHA_1 = tf.constant(a1, dtype=tf.float64, name="ALPHA_1")
+                ALPHA_1 = tf.constant(a1, dtype=tf.float32, name="ALPHA_1")
                 weight_norm_product = main_subloss(
                     given_edge_list, ref_vec,
                     predicted, 'Labeled_edges', feature_set)
@@ -219,13 +222,13 @@ def custom_loss(labels, predicted, reference_vector, feature_set, label_type_lis
                 tf.summary.scalar("Labeled_subloss", temp_sum_LL)
                 return temp_sum_LL
             else:
-                return tf.convert_to_tensor(0, dtype=tf.float64)
+                return tf.constant(0, dtype=tf.float32)
 
     def mixed_subloss(given_edge_list, ref_vec, labels, predicted, feature_set):
         with tf.variable_scope('Mixed_edges', reuse=tf.AUTO_REUSE) as scope:
             temp_sum_LU = tf.get_variable("temp_sum_LU", shape=[])
             if given_edge_list:
-                ALPHA_2 = tf.constant(a2, dtype=tf.float64, name="ALPHA_2")
+                ALPHA_2 = tf.constant(a2, dtype=tf.float32, name="ALPHA_2")
                 weight_norm_product = main_subloss(
                     given_edge_list, ref_vec,
                     predicted, 'Mixed_edges', feature_set)
@@ -238,13 +241,13 @@ def custom_loss(labels, predicted, reference_vector, feature_set, label_type_lis
                 tf.summary.scalar("Mixed_subloss", temp_sum_LU)
                 return temp_sum_LU
             else:
-                return tf.convert_to_tensor(0, dtype=tf.float64)
+                return tf.constant(0, dtype=tf.float32)
 
     def unlabeled_subloss(given_edge_list, ref_vec, labels, predicted, feature_set):
         with tf.variable_scope('Unlabeled_edges', reuse=tf.AUTO_REUSE) as scope:
             temp_sum_UU = tf.get_variable("temp_sum_UU", shape=[])
             if given_edge_list:
-                ALPHA_3 = tf.constant(a3, dtype=tf.float64, name="ALPHA_3")
+                ALPHA_3 = tf.constant(a3, dtype=tf.float32, name="ALPHA_3")
                 weight_norm_product = main_subloss(
                     given_edge_list, ref_vec,
                     predicted, 'Unlabeled_edges', feature_set)
@@ -252,7 +255,7 @@ def custom_loss(labels, predicted, reference_vector, feature_set, label_type_lis
                 tf.summary.scalar("Unlabeled", temp_sum_UU)
                 return temp_sum_UU
             else:
-                return tf.convert_to_tensor(0, dtype=tf.float64)
+                return tf.constant(0, dtype=tf.float32)
     
     with tf.variable_scope('Loss') as loss_scope:
         total_loss = tf.convert_to_tensor(0)
@@ -295,9 +298,6 @@ def my_model_fn(features, labels, mode, params):
         hidden_nodes {list} -- list of hidden_nodes
     """
 
-    def replace_none_with_zero(l):
-        return [(tf.to_float(0), i[1]) if i[0]==None else i for i in l] 
-
     # THIS CREATES THE INPUT LAYER AND IMPORTS DATA
     net = tf.feature_column.input_layer(
         features[0], params['feat_cols'])
@@ -314,9 +314,11 @@ def my_model_fn(features, labels, mode, params):
     predicted_classes = tf.argmax(logits, 1)
     logits = tf.Print(logits, [logits], "LOGITS")
 
+
     scaled_logits = tf.nn.softmax(logits)
     # scaled_logits = tf.clip_by_value(scaled_logits, 1e-10, 1)
-
+    print(logits.dtype)
+    print(f'Ref Vec dtype{features[1].dtype}')
     loss = custom_loss(
         labels, scaled_logits, features[1], saved_features, params['LLUU_LIST'])
 
@@ -394,8 +396,8 @@ def input_fn(feature_set, label_list, shuffle=False):
 
     slices = tf.data.Dataset.from_tensor_slices(
         ((zipped_features,
-            mapping_table),
-            label_list.values.astype(int)))
+            mapping_table.astype(np.int32)),
+            label_list.values.astype(np.float32)))
     if shuffle:
         slices = slices.shuffle(100)
     slices = slices.batch(len(feature_set)).repeat(count=None)
@@ -479,7 +481,7 @@ else:
         my_feat_cols.append(tf.feature_column.numeric_column(str(feat_col)))
     classifier = tf.estimator.Estimator(
         model_fn=my_model_fn,
-        model_dir="/tmp/log/newdrafts9",
+        model_dir="/tmp/log/newdrafts12",
         # model_dir="C:/Users/kang828/Desktop/pleasedeargodwork",
         params={"hidden_nodes": [30, 30, 30],
                 'classes': NUM_OF_LABELS,
