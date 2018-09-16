@@ -71,7 +71,7 @@ TOTAL_LLUU_LIST = readfile.access_file("../data/total_edge_type.txt")
 TRAIN_STEPS = 100
 
 # PROPORTION OF EDGES TO SAMPLE
-SAMPLE_CONST = 1
+SAMPLE_CONST = 0.1
 
 # ALPHAs - THESE ARE USED AS CONSTANTS IN MULTIPLICATION
 a1 = 0.5
@@ -128,9 +128,13 @@ def custom_loss(labels, predicted, reference_vector, feature_set, label_type_lis
 
         nn_output = tf.Print(nn_output, [nn_output], "NN_OUT", summarize=20)
         print(f'nn_out type is {nn_output.dtype}')
-        norm_vector = tf.map_fn(
-            lambda a: tf.square(tf.norm(
-                nn_output[(a[0])] - nn_output[(a[1])])), pairs, dtype=tf.float32)
+        nn_out_1 = tf.gather(nn_output, pairs[:, 0])
+        nn_out_2 = tf.gather(nn_output, pairs[:, 1])
+        norm_vector = tf.square(tf.norm(nn_out_1 - nn_out_2, axis=1))
+
+        # norm_vector = tf.map_fn(
+        #     lambda a: tf.square(tf.norm(
+        #         nn_output[(a[0])] - nn_output[(a[1])])), pairs, dtype=tf.float32)
         print(f'norm vector type is {norm_vector.dtype}')
         # norm_vector = tf.to_float(norm_vector)
         norm_vector = tf.Print(norm_vector, [norm_vector], "NORM_VEC", summarize=20)
@@ -194,13 +198,29 @@ def custom_loss(labels, predicted, reference_vector, feature_set, label_type_lis
                              for u_w, v_w in label_types_to_iterate]), 1)
             label_tensor = tf.reshape(label_types_to_iterate, [-1])
             print(f'REF_VEC dtype {ref_vec.dtype}')
+            print(f'label_tensor shape {label_tensor.get_shape()}')
+            print(f'REF_VEC shape {ref_vec.get_shape()}')
+
+            """ THIS CODE IS INCOMPATIBLE WITH GRADIENTS
             relative_indices = tf.map_fn(
                 lambda a: ref_vec[a-1], label_tensor)
+            """
+            # ALTERNATE HERE
+            # i = tf.constant(0)
+            # temp_hold = tf.constant([], dtype=tf.int32, shape=[1,1])
+            # condition = lambda i, ref_vec, thold: tf.less(i, label_tensor.get_shape()[0])
+            # action = lambda i, ref_vec, thold: [
+            #     i+1, tf.concat([thold, tf.expand_dims(ref_vec[label_tensor[i]-1], 0)], 0)]
+            # relative_indices = tf.while_loop(
+            #     condition, action, [i, ref_vec, temp_hold], 
+            #     shape_invariants=[i.get_shape(), ref_vec.get_shape(), tf.TensorShape([None, 1])])
+
+            relative_indices = tf.gather(ref_vec, label_tensor-1)
+
             print(f'relative_indices dtype {relative_indices.dtype}')
             relative_indices = tf.reshape(relative_indices, [2, -1])
             norm_tensor = tf.expand_dims(
                 d_term_h_index(relative_indices, given_logits), axis=0)
-            # norm_tensor = tf.square(norm_tensor)
             product_norm_weight = tf.reshape(
                 tf.matmul(norm_tensor, weight_tensor), [])
             return product_norm_weight
@@ -208,7 +228,6 @@ def custom_loss(labels, predicted, reference_vector, feature_set, label_type_lis
     def labeled_subloss(given_edge_list, ref_vec, labels, predicted, feature_set):
         # iterate through each type of edge
         with tf.variable_scope('Labeled_edges', reuse=tf.AUTO_REUSE) as scope:
-            temp_sum_LL = tf.get_variable("temp_sum_LL", shape=[])
             if given_edge_list:
                 ALPHA_1 = tf.constant(a1, dtype=tf.float32, name="ALPHA_1")
                 weight_norm_product = main_subloss(
@@ -228,7 +247,6 @@ def custom_loss(labels, predicted, reference_vector, feature_set, label_type_lis
 
     def mixed_subloss(given_edge_list, ref_vec, labels, predicted, feature_set):
         with tf.variable_scope('Mixed_edges', reuse=tf.AUTO_REUSE) as scope:
-            temp_sum_LU = tf.get_variable("temp_sum_LU", shape=[])
             if given_edge_list:
                 ALPHA_2 = tf.constant(a2, dtype=tf.float32, name="ALPHA_2")
                 weight_norm_product = main_subloss(
@@ -247,7 +265,6 @@ def custom_loss(labels, predicted, reference_vector, feature_set, label_type_lis
 
     def unlabeled_subloss(given_edge_list, ref_vec, labels, predicted, feature_set):
         with tf.variable_scope('Unlabeled_edges', reuse=tf.AUTO_REUSE) as scope:
-            temp_sum_UU = tf.get_variable("temp_sum_UU", shape=[])
             if given_edge_list:
                 ALPHA_3 = tf.constant(a3, dtype=tf.float32, name="ALPHA_3")
                 weight_norm_product = main_subloss(
@@ -299,8 +316,6 @@ def my_model_fn(features, labels, mode, params):
         dataset {pd DF} -- dataset with indices
         hidden_nodes {list} -- list of hidden_nodes
     """
-    def replace_none_with_zero(l):
-        return [0 if i==None else i for i in l]
 
     # https://github.com/tensorflow/tensorflow/issues/783
     # THIS CREATES THE INPUT LAYER AND IMPORTS DATA
@@ -312,6 +327,7 @@ def my_model_fn(features, labels, mode, params):
     # BUILDS HIDDEN LAYERS
     for units in params['hidden_nodes']:
         net = tf.layers.dense(net, units=units, activation=tf.nn.relu)
+        tf.is_nan(net)
         # kernel_initializer=tf.initializers.random_normal
     # BUILDS THE FINAL LAYERS
     logits = tf.layers.dense(
@@ -328,6 +344,8 @@ def my_model_fn(features, labels, mode, params):
     # a connection between the weights and the output
     # the solution would be to sample ALL edges (no) or replace "none" values with 0 
     # this function replaces none with 0
+    # nodes are also often duplicated (e.g. 4th node)
+    # this means these edges have much greater gradients bc they have hundreds of edge outputs
 
     print(logits.dtype)
     print(f'Ref Vec dtype{features[1].dtype}')
@@ -359,10 +377,10 @@ def my_model_fn(features, labels, mode, params):
         )
 
     # optimizer = tf.train.GradientDescentOptimizer(0.00000001)
-    optimizer = tf.train.AdamOptimizer(0)
-    # gvs = optimizer.compute_gradients(loss)
+    optimizer = tf.train.AdamOptimizer(1e-8)
+    gvs = optimizer.compute_gradients(loss)
+    print(gvs)
     # gvs = replace_none_with_zero(gvs)
-    # print(gvs)
     # capped_gvs = [(tf.clip_by_value(grad, -1, 1), var) for grad, var in gvs]
     # train = optimizer.apply_gradients(capped_gvs)
     train = optimizer.minimize(loss, global_step=tf.train.get_global_step())
@@ -493,7 +511,7 @@ else:
         my_feat_cols.append(tf.feature_column.numeric_column(str(feat_col)))
     classifier = tf.estimator.Estimator(
         model_fn=my_model_fn,
-        model_dir="/tmp/log/newdrafts15",
+        model_dir="/tmp/log/newdrafts21",
         # model_dir="C:/Users/kang828/Desktop/pleasedeargodwork",
         params={"hidden_nodes": [30, 30, 30],
                 'classes': NUM_OF_LABELS,
