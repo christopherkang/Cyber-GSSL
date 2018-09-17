@@ -155,8 +155,6 @@ def custom_loss(labels, predicted, reference_vector, feature_set, label_type_lis
             tf tensor -- returns a tensor of all the answers
         """
 
-        print(index.get_shape())
-
         # num_of_neighbors = tf.convert_to_tensor(np.count_nonzero(
         #     EDGE_MATRIX.loc[index]), dtype=tf.float32)
 
@@ -172,7 +170,7 @@ def custom_loss(labels, predicted, reference_vector, feature_set, label_type_lis
         #             tf.one_hot(labels, depth=NUM_OF_LABELS, dtype=tf.float32),
         #             tf.transpose(tf.log(predicted[index]+1e-8)))
         # cross_entropy = tf.Print(cross_entropy, [cross_entropy], "XENTROPY")
-        cross_entropy = -1(num_of_neighbors) * tf.nn.sparse_softmax_cross_entropy_with_logits(
+        cross_entropy = -1/(num_of_neighbors) * tf.nn.sparse_softmax_cross_entropy_with_logits(
             labels=labels, logits=predicted[index])
         return cross_entropy
 
@@ -198,7 +196,7 @@ def custom_loss(labels, predicted, reference_vector, feature_set, label_type_lis
                              for u_w, v_w in label_types_to_iterate]), 1)
             label_tensor = tf.reshape(label_types_to_iterate, [-1])
             print(f'REF_VEC dtype {ref_vec.dtype}')
-            print(f'label_tensor shape {label_tensor.get_shape()}')
+            # print(f'label_tensor shape {label_tensor.get_shape()}')
             print(f'REF_VEC shape {ref_vec.get_shape()}')
 
             """ THIS CODE IS INCOMPATIBLE WITH GRADIENTS
@@ -215,14 +213,15 @@ def custom_loss(labels, predicted, reference_vector, feature_set, label_type_lis
             #     condition, action, [i, ref_vec, temp_hold], 
             #     shape_invariants=[i.get_shape(), ref_vec.get_shape(), tf.TensorShape([None, 1])])
 
-            relative_indices = tf.gather(ref_vec, label_tensor-1)
+            relative_indices = tf.gather(
+                ref_vec, 
+                label_tensor-1)
 
             print(f'relative_indices dtype {relative_indices.dtype}')
             relative_indices = tf.reshape(relative_indices, [2, -1])
             norm_tensor = tf.expand_dims(
                 d_term_h_index(relative_indices, given_logits), axis=0)
-            product_norm_weight = tf.reshape(
-                tf.matmul(norm_tensor, weight_tensor), [])
+            product_norm_weight = tf.matmul(norm_tensor, weight_tensor)[0, 0]
             return product_norm_weight
 
     def labeled_subloss(given_edge_list, ref_vec, labels, predicted, feature_set):
@@ -376,14 +375,16 @@ def my_model_fn(features, labels, mode, params):
             mode, loss=loss, eval_metric_ops=metrics
         )
 
-    # optimizer = tf.train.GradientDescentOptimizer(0.00000001)
-    optimizer = tf.train.AdamOptimizer(1e-8)
+    optimizer = tf.train.GradientDescentOptimizer(0.00000001)
+    # optimizer = tf.train.AdamOptimizer(1e-8)
     gvs = optimizer.compute_gradients(loss)
     print(gvs)
+    for nn in gvs:
+        nn = (0, nn[1])
     # gvs = replace_none_with_zero(gvs)
     # capped_gvs = [(tf.clip_by_value(grad, -1, 1), var) for grad, var in gvs]
-    # train = optimizer.apply_gradients(capped_gvs)
-    train = optimizer.minimize(loss, global_step=tf.train.get_global_step())
+    train = optimizer.apply_gradients(gvs)
+    # train = optimizer.minimize(loss, global_step=tf.train.get_global_step())
     for var in tf.trainable_variables():
         tf.summary.histogram(var.name, var)
 
@@ -511,7 +512,7 @@ else:
         my_feat_cols.append(tf.feature_column.numeric_column(str(feat_col)))
     classifier = tf.estimator.Estimator(
         model_fn=my_model_fn,
-        model_dir="/tmp/log/newdrafts21",
+        model_dir="/tmp/log/newdrafts26",
         # model_dir="C:/Users/kang828/Desktop/pleasedeargodwork",
         params={"hidden_nodes": [30, 30, 30],
                 'classes': NUM_OF_LABELS,
