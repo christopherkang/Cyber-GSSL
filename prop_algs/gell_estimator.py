@@ -379,8 +379,9 @@ def my_model_fn(features, labels, mode, params):
     # optimizer = tf.train.AdamOptimizer(1e-8)
     gvs = optimizer.compute_gradients(loss)
     print(gvs)
-    for nn in gvs:
-        nn = (0, nn[1])
+
+    for nn in range(len(gvs)):
+        gvs[nn] = (tf.zeros(gvs[nn][0].get_shape(), dtype=tf.float32), gvs[nn][1])
     # gvs = replace_none_with_zero(gvs)
     # capped_gvs = [(tf.clip_by_value(grad, -1, 1), var) for grad, var in gvs]
     train = optimizer.apply_gradients(gvs)
@@ -512,8 +513,7 @@ else:
         my_feat_cols.append(tf.feature_column.numeric_column(str(feat_col)))
     classifier = tf.estimator.Estimator(
         model_fn=my_model_fn,
-        model_dir="/tmp/log/newdrafts26",
-        # model_dir="C:/Users/kang828/Desktop/pleasedeargodwork",
+        model_dir="/tmp/log/newdrafts27",
         params={"hidden_nodes": [30, 30, 30],
                 'classes': NUM_OF_LABELS,
                 "LLUU_LIST": train_LLUU,
